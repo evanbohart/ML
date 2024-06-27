@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <math.h>
 
-static inline double rand_double(double min, double max) { return (max - min) * rand() / RAND_MAX + min; }
+double rand_double(double min, double max);
+double rand_normal(double mean, double stddev);
+void shuffle(void *arr, size_t type_size, int arr_size);
 
 typedef struct mat {
 	int rows;
@@ -18,7 +20,8 @@ typedef double (*func)(double);
 
 mat mat_alloc(int rows, int cols);
 int mat_compare(mat m1, mat m2);
-void mat_rand(mat destination, double min, double max);
+void mat_rand(mat m, double min, double max);
+void mat_zero(mat m);
 void mat_copy(mat destination, mat m);
 void mat_add(mat destination, mat m1, mat m2);
 void mat_sub(mat destination, mat m1, mat m2);
@@ -29,9 +32,10 @@ void mat_scale(mat destination, mat m, double a);
 void mat_func(mat destination, mat m, func f);
 void mat_print(mat m);
 
-static inline double sig(double x) { return 1 / (1 + exp(x)); }
-static inline double dsig(double x) { return sig(x) * (1 - sig(x)); }
-static inline double gaussian(double x) { return exp(-(pow(x, 2))); }
+double sig(double x);
+double dsig(double x);
+double relu(double x);
+double drelu(double x);
 
 typedef struct net {
 	int layers;
@@ -42,19 +46,19 @@ typedef struct net {
 	mat *biases;
 } net;
 
-static inline double mean_squared(double output, double target) { return pow(output - target, 2); }
+double mean_squared(double output, double target);
 
 net net_alloc(int layers, mat topology);
 void net_destroy(net *n);
 void net_copy(net destination, net n);
 void net_rand(net n, double min, double max);
+void net_rand_weights(net n, double min, double max);
+void net_rand_biases(net n, double min, double max);
+void net_zero(net n);
 void feed_forward(net n, mat inputs, func a);
 double get_cost(mat outputs, mat targets);
-void net_breed(net destination, net n1, net n2);
-void net_mutate(net n, double min, double max);
-//double backprop(net n, mat inputs, mat targets, func a, func da, double rate);
-
-#endif
+void net_sbx_crossover(net destination1, net destination2, net n1, net n2);
+void net_mutate(net n, double rate, double mean, double stddev);
 
 typedef struct specimen {
 	double fitness;
@@ -66,5 +70,7 @@ void gen_destroy(specimen **gen, int size);
 void gen_copy(specimen **destination, specimen *gen, int size);
 int compare_fitness(const void *p, const void *d);
 void find_best(specimen *desintation, specimen *gen, int new_size, int current_size);
-void gen_breed(specimen *destination, specimen *gen, int new_size, int current_size);
-void gen_mutate(specimen *gen, int size, double min, double max);
+void gen_sbx_crossover(specimen *destination, specimen *gen, int size);
+void gen_mutate(specimen *gen, int size, double rate, double mean, double std_dev);
+
+#endif

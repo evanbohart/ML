@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+double rand_double(double min, double max) { return (max - min) * rand() / RAND_MAX + min; }
+
 mat mat_alloc(int rows, int cols)
 {
 	mat m;
@@ -29,11 +31,20 @@ int mat_compare(mat m1, mat m2)
 	return 1;
 }
 
-void mat_rand(mat destination, double min, double max)
+void mat_rand(mat m, double min, double max)
 {
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = rand_double(min, max);
+	for (int i = 0; i < m.rows; ++i) {
+		for (int j = 0; j < m.cols; ++j) {
+			mat_at(m, i, j) = rand_double(min, max);
+		}
+	}
+}
+
+void mat_zero(mat m)
+{
+	for (int i = 0; i < m.rows; ++i) {
+		for (int j = 0; j < m.cols; ++j) {
+			mat_at(m, i, j) = 0;
 		}
 	}
 }

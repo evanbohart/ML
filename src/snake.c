@@ -6,7 +6,6 @@
 #include <math.h>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
-#include <SDL_ttf.h>
 
 #define WINDOW_X 400
 #define WINDOW_Y 100
@@ -14,11 +13,6 @@
 #define WINDOW_HEIGHT 600
 #define TILE_WIDTH 30
 #define TILE_HEIGHT 30
-
-typedef enum {
-	TRAIN,
-	SHOWCASE
-} mode;
 
 enum {
 	LEFT,
@@ -39,7 +33,7 @@ typedef struct apple {
 	int y;
 } apple;
 
-static inline int random_coord(int min, int max) { return rand() % (max - min + 1) + min; }
+int random_coord(int min, int max) { return rand() % (max - min + 1) + min; }
 
 void increase_snake(snake_part **tail)
 {
@@ -68,17 +62,18 @@ void increase_snake(snake_part **tail)
 			break;
 	}
 
-	*tail = (*tail)->next;
+	(*tail) = (*tail)->next;
 }
 
 void new_snake(snake_part **head, snake_part **tail)
 {
-	assert(*tail == *head);
+	(*head) = malloc(sizeof(snake_part));
 
 	(*head)->x = random_coord((2 * WINDOW_WIDTH) / (5 * TILE_WIDTH), (WINDOW_WIDTH * 3) / (5 * TILE_WIDTH));
 	(*head)->y = random_coord((2 * WINDOW_HEIGHT) / (5 * TILE_HEIGHT), (WINDOW_HEIGHT * 3) / (5 * TILE_HEIGHT));
 	(*head)->dir = rand() % 4;
-	(*head)->next = NULL;
+	(*tail) = (*head);
+	(*tail)->next = NULL;
 
 	for (int i = 0; i < 3; ++i) {
 		increase_snake(tail);
@@ -95,6 +90,8 @@ void destroy_snake(snake_part **head)
 		free(current);
 		current = next;
 	}
+
+	*head = NULL;
 }
 
 void move_snake(snake_part *head)
@@ -131,8 +128,8 @@ void move_snake(snake_part *head)
 
 bool check_collisions(snake_part *head)
 {
-	if (head->x < 0 || head->x >= WINDOW_WIDTH / TILE_WIDTH ||
-	    head->y < 0 || head->y >= WINDOW_HEIGHT / TILE_HEIGHT) {
+	if (head->x < 0 || head->x > WINDOW_WIDTH / TILE_WIDTH - 1 ||
+	    head->y < 0 || head->y > WINDOW_HEIGHT / TILE_HEIGHT - 1) {
 		return true;
 	}
 
@@ -184,23 +181,6 @@ void new_apple(snake_part *head, apple *a, int score)
 			}
 		}
 	}
-}
-
-bool get_game_over(snake_part *head, snake_part **tail, apple *a, int *score)
-{
-	move_snake(head);
-
-	if (check_collisions(head)) {
-		return true;
-	}
-
-	if (check_eat(head, *a)) {
-		++(*score);
-		increase_snake(tail);
-		new_apple(head, a, *score);
-	}
-
-	return false;
 }
 
 void render_background(SDL_Renderer *renderer)
@@ -256,397 +236,292 @@ void render_apple(SDL_Renderer *renderer, apple a)
 	SDL_RenderFillRect(renderer, &rect);
 }
 
-void render_score(SDL_Renderer *renderer, int score)
+double gaussian(double x) { return exp(-(pow(x, 2) / 20)); }
+
+void get_inputs(mat inputs, snake_part *head, apple a)
 {
-	TTF_Font *arial = TTF_OpenFont("arial.ttf", 24);
-	SDL_Color white;
-	white.r = 0xFF;
-	white.g = 0xFF;
-	white.b = 0xFF;
-
-	char text_buffer[32];
-	sprintf(text_buffer, "Score: %d", score);
-	SDL_Surface *text_surface = TTF_RenderText_Solid(arial, text_buffer, white); 
-	SDL_Texture *text = SDL_CreateTextureFromSurface(renderer, text_surface);
-
-	SDL_Rect rect;
-	rect.x = 400;
-	rect.y = 400;
-	rect.w = 100;
-	rect.h = 100;
-	SDL_RenderCopy(renderer, text, NULL, &rect);
-
-	TTF_CloseFont(arial);
-	SDL_FreeSurface(text_surface);
-	SDL_DestroyTexture(text);
-}
-
-void render_time(SDL_Renderer *renderer, int time) {
-	TTF_Font *arial = TTF_OpenFont("arial.ttf", 24);
-	SDL_Color white;
-	white.r = 0xFF;
-	white.g = 0xFF;
-	white.b = 0xFF;
-
-	int minutes = time / 60;
-	int seconds = time - minutes * 60;
-	char text_buffer[32];
-	sprintf(text_buffer, "Time: %02d:%02d", minutes, seconds);
-	SDL_Surface *text_surface = TTF_RenderText_Solid(arial, text_buffer, white); 
-	SDL_Texture *text = SDL_CreateTextureFromSurface(renderer, text_surface);
-
-	SDL_Rect rect;
-	rect.x = 100;
-	rect.y = 100;
-	rect.w = 100;
-	rect.h = 100;
-	SDL_RenderCopy(renderer, text, NULL, &rect);
-
-	TTF_CloseFont(arial);
-	SDL_FreeSurface(text_surface);
-	SDL_DestroyTexture(text);
-}
-
-void get_inputs(mat inputs, snake_part *head, snake_part *tail, apple a)
-{
-	assert(inputs.rows == 24);
-	assert(inputs.cols == 1);
-
 	mat_at(inputs, 0, 0) = gaussian(head->x);
-	mat_at(inputs, 1, 0) = gaussian((WINDOW_WIDTH / TILE_WIDTH - 1) - head->x);
-	mat_at(inputs, 2, 0) = gaussian((WINDOW_HEIGHT / TILE_HEIGHT - 1) - head->y);
+	mat_at(inputs, 1, 0) = gaussian(WINDOW_WIDTH / TILE_WIDTH - 1 - head->x);
+	mat_at(inputs, 2, 0) = gaussian(WINDOW_HEIGHT / TILE_HEIGHT - 1 - head->y);
 	mat_at(inputs, 3, 0) = gaussian(head->y);
-	mat_at(inputs, 4, 0) = gaussian(tail->x);
-	mat_at(inputs, 5, 0) = gaussian((WINDOW_WIDTH / TILE_WIDTH - 1) - tail->x);
-	mat_at(inputs, 6, 0) = gaussian((WINDOW_HEIGHT / TILE_HEIGHT - 1) - tail->y);
-	mat_at(inputs, 7, 0) = gaussian(tail->y);
 
-	int head_distance_left = WINDOW_WIDTH / TILE_WIDTH - 1;
-	int head_distance_right = WINDOW_WIDTH / TILE_WIDTH - 1;
-	int head_distance_up = WINDOW_HEIGHT / TILE_HEIGHT - 1;
-	int head_distance_down = WINDOW_HEIGHT / TILE_HEIGHT - 1;
-	int tail_distance_left = WINDOW_WIDTH / TILE_WIDTH - 1;
-	int tail_distance_right = WINDOW_WIDTH / TILE_WIDTH - 1;
-	int tail_distance_up = WINDOW_HEIGHT / TILE_HEIGHT - 1;
-	int tail_distance_down = WINDOW_HEIGHT / TILE_HEIGHT - 1;
+	int distance_self_left = 0;
+	int distance_self_right = 0;
+	int distance_self_down = 0;
+	int distance_self_up = 0;
 	
+	bool has_turned = false;
 	snake_part *current = head;
 	while (current) {
-		if (current->y == head->y) {
+		if (current->dir != head->dir) has_turned = true;
+
+		if (has_turned && current->y == head->y) {
 			if (current->x < head->x) {
-				head_distance_left = fmin(head_distance_left, head->x - current->x);
+				distance_self_left = fmin(distance_self_left, head->x - current->x);
 			}
 			else if (current->x > head->x) {
-				head_distance_right = fmin(head_distance_right, current->x - head->x);
+				distance_self_right = fmin(distance_self_right, current->x - head->x);
 			}
 		}
 
-		if (current->x == head->x) {
+		if (has_turned && current->x == head->x) {
 			if (current->y > head->y) {
-				head_distance_down = fmin(head_distance_down, current->y - head->y);
+				distance_self_down = fmin(distance_self_down, current->y - head->y);
 			}
 			else if (current->y < head->y) {
-				head_distance_up = fmin(head_distance_up, head->y - current->y);
-			}
-		}
-
-		if (current->y == tail->y) {
-			if (current->x < tail->x) {
-				tail_distance_left = fmin(tail_distance_left, tail->x - current->x);
-			}
-			else if (current->x > tail->x) {
-				tail_distance_right = fmin(tail_distance_right, current->x - tail->x);
-			}
-		}
-
-		if (current->x == tail->x) {
-			if (current->y > tail->y) {
-				tail_distance_down = fmin(tail_distance_down, current->y - tail->y);
-			}
-			else if (current->y < tail->y) {
-				tail_distance_up = fmin(tail_distance_up, tail->y - current->y);
+				distance_self_up = fmin(distance_self_up, head->y - current->y);
 			}
 		}
 
 		current = current->next;
 	}
 
-	mat_at(inputs, 8, 0) = gaussian(head_distance_left);
-	mat_at(inputs, 9, 0) = gaussian(head_distance_right);
-	mat_at(inputs, 10, 0) = gaussian(head_distance_down);
-	mat_at(inputs, 11, 0) = gaussian(head_distance_up);
-	mat_at(inputs, 12, 0) = gaussian(tail_distance_left);
-	mat_at(inputs, 13, 0) = gaussian(tail_distance_right);
-	mat_at(inputs, 14, 0) = gaussian(tail_distance_down);
-	mat_at(inputs, 15, 0) = gaussian(tail_distance_up);
+	mat_at(inputs, 4, 0) = distance_self_left > 0 ? gaussian(distance_self_left) : 0;
+	mat_at(inputs, 5, 0) = distance_self_right > 0 ? gaussian(distance_self_right) : 0;
+	mat_at(inputs, 6, 0) = distance_self_down > 0 ? gaussian(distance_self_down) : 0;
+	mat_at(inputs, 7, 0) = distance_self_up > 0 ? gaussian(distance_self_up) : 0;
 
-	head_distance_left = WINDOW_WIDTH / TILE_WIDTH - 1;
-	head_distance_right = WINDOW_WIDTH / TILE_WIDTH - 1;
-	head_distance_up = WINDOW_HEIGHT / TILE_HEIGHT - 1;
-	head_distance_down = WINDOW_HEIGHT / TILE_HEIGHT - 1;
-	tail_distance_left = WINDOW_WIDTH / TILE_WIDTH - 1;
-	tail_distance_right = WINDOW_WIDTH / TILE_WIDTH - 1;
-	tail_distance_up = WINDOW_HEIGHT / TILE_HEIGHT - 1;
-	tail_distance_down = WINDOW_HEIGHT / TILE_HEIGHT - 1;
-
-	if (head->x == a.x) {
-		if (head->y < a.y) {
-			head_distance_left = a.y - head->y;
-		}
-		else if (head->y > a.y) {
-			head_distance_right = head->y - a.y;
-		}
-	}
+	int distance_apple_left = 0;
+	int distance_apple_right = 0;
+	int distance_apple_down = 0;
+	int distance_apple_up = 0;
 
 	if (head->y == a.y) {
-		if (head->y > a.y) {
-			head_distance_down = head->y - a.y;
+		if (a.x < head->x) {
+			distance_apple_left = head->x - a.x;
 		}
-		else if (head->y < a.y) {
-			head_distance_up = a.y - head->y;
-		}
-	}
-
-	if (tail->x == a.x) {
-		if (tail->y < a.y) {
-			tail_distance_left = a.y - tail->y;
-		}
-		else if (tail->y > a.y) {
-			tail_distance_right = tail->y - a.y;
+		else if (a.x > head->x) {
+			distance_apple_right = a.x - head->x;
 		}
 	}
 
-	if (tail->y == a.y) {
-		if (tail->y > a.y) {
-			tail_distance_down = tail->y - a.y;
+	if (head->x == a.x) {
+		if (a.y > head->y) {
+			distance_apple_down = head->y - a.y;
 		}
-		else if (tail->y < a.y) {
-			tail_distance_up = a.y - tail->y;
+		else if (a.y < head->y) {
+			distance_apple_up = a.y - head->y;
 		}
 	}
 
-	mat_at(inputs, 16, 0) = gaussian(head_distance_left);
-	mat_at(inputs, 17, 0) = gaussian(head_distance_right);
-	mat_at(inputs, 18, 0) = gaussian(head_distance_down);
-	mat_at(inputs, 19, 0) = gaussian(head_distance_up);
-	mat_at(inputs, 20, 0) = gaussian(tail_distance_left);
-	mat_at(inputs, 21, 0) = gaussian(tail_distance_right);
-	mat_at(inputs, 22, 0) = gaussian(tail_distance_down);
-	mat_at(inputs, 23, 0) = gaussian(tail_distance_up);
+	mat_at(inputs, 8, 0) = distance_apple_left > 0 ? gaussian(distance_apple_left) : 0;
+	mat_at(inputs, 9, 0) = distance_apple_right > 0 ? gaussian(distance_apple_right) : 0;
+	mat_at(inputs, 10, 0) = distance_apple_down > 0 ? gaussian(distance_apple_down) : 0;
+	mat_at(inputs, 11, 0) = distance_apple_up > 0 ? gaussian(distance_apple_up) : 0;
+
+	mat_at(inputs, 12, 0) = head->dir == LEFT ? 1 : 0;
+	mat_at(inputs, 13, 0) = head->dir == RIGHT ? 1 : 0;
+	mat_at(inputs, 14, 0) = head->dir == DOWN ? 1 : 0;
+	mat_at(inputs, 15, 0) = head->dir == UP ? 1 : 0;
 }
 
-void change_direction(mat inputs, specimen snake, snake_part **head) 
+void change_direction(mat inputs, specimen snake, snake_part *head) 
 {
-	feed_forward(snake.n, inputs, sig);
+	feed_forward(snake.n, inputs, relu);
 
-	int output;
+	int output = 0;
 	double max = 0;
-	for (int i = 0; i < mat_at(snake.n.topology, snake.n.layers - 1, 0); ++i) {
+	for (int i = 0; i < 4; ++i) {
 		if (mat_at(snake.n.acts[snake.n.layers - 2], i, 0) > max) {
-			output = i;	
+			output = i;
 			max = mat_at(snake.n.acts[snake.n.layers - 2], i, 0);
 		}
 	}
 
-	switch (output) {
-		case LEFT:
-			(*head)->dir = (*head)->dir == RIGHT ? RIGHT : LEFT;
-			break;
-		case RIGHT:
-			(*head)->dir = (*head)->dir == LEFT ? LEFT : RIGHT;
-			break;
-		case DOWN:
-			(*head)->dir = (*head)->dir == UP ? UP : DOWN;
-			break;
-		case UP:
-			(*head)->dir = (*head)->dir == DOWN ? DOWN : UP;
-			break;
-	}
+	head->dir = output;
 }
 
-static inline double fitness(int score, double time) { return score + time / 60; }
+double fitness(int score, int frames) { return sqrt(frames * pow(2, 2 * score)); }
 
 int main() 
-{		
+{
 	int score = 0;
-	double timer = 0;
-
+	int frames = 0;
+	int dead_tracker = 0;
+	
 	srand(time(0));
-	snake_part *head = malloc(sizeof(snake_part));
+	snake_part *head = NULL;
 	snake_part *tail = head;
 	new_snake(&head, &tail);
 	apple a;
 	new_apple(head, &a, score);
 	
-	int layers = 4;
+	int layers = 3;
 	mat topology = mat_alloc(layers, 1);
-	mat_at(topology, 0, 0) = 24;
-	mat_at(topology, 1, 0) = 16;
-	mat_at(topology, 2, 0) = 16;
-	mat_at(topology, 3, 0) = 4;
+	mat_at(topology, 0, 0) = 16;
+	mat_at(topology, 1, 0) = 8;
+	mat_at(topology, 2, 0) = 4;
 	mat inputs = mat_alloc(mat_at(topology, 0, 0), 1);
 	
 	int gens = 0;
 	int gen_count = 0;
-	int epochs = 1000;
+	int epochs = 400;
+	int progress_report = 100;
 	int gen_size = 1000;
-	int best_size = 20;
-	int offspring_size = best_size / 2;
+	int best_size = 200;
 
 	specimen *gen = gen_alloc(gen_size, layers, topology);
 	for (int i = 0; i < gen_size; ++i) {
-		net_rand(gen[i].n, -10, 10);
+		net_rand(gen[i].n, -5, 5);
 	}
 
 	specimen *new = gen_alloc(gen_size, layers, topology);
 	specimen *best = gen_alloc(best_size, layers, topology);
-	specimen *offspring = gen_alloc(offspring_size, layers, topology);
+	specimen *offspring = gen_alloc(best_size, layers, topology);
 
-	specimen showcase;
-	mode m = TRAIN;
 
-	while (m == TRAIN) {
-		while (!get_game_over(head, &tail, &a, &score)) {
-			get_inputs(inputs, head, tail, a);
-			change_direction(inputs, gen[gen_count], &head);
-			timer += 120.0 / 1000.0;
-		}
+	free(topology.vals);
+	topology.vals = NULL;
 
-		gen[gen_count++].fitness = fitness(score, timer);
-		score = 0;
-		timer = 0;
-		destroy_snake(&head->next);
-		tail = head;
-		new_snake(&head, &tail);
-		new_apple(head, &a, score);
+	double mutation_rate = 5e-2;
+	double mean = 0;
+	double stddev = 1;
 
-		if (gen_count == gen_size) {
-			gen_count = 0;
+	specimen *showcase = NULL;
+	
+	while (gens != epochs) {
+		while (!showcase) {
+			for (int i = 0; i < 100; ++i) {
+				while (!check_collisions(head) && dead_tracker < 200) {
+					++frames;
+					++dead_tracker;
+					get_inputs(inputs, head, a);
+					change_direction(inputs, gen[gen_count], head);	
+					move_snake(head);
 
-			double best_fitness = gen[0].fitness;
-			double worst_fitness = gen[0].fitness;
-			double avg_fitness = 0.0;
-			for (int i = 0; i < gen_size; ++i) {
-				best_fitness = fmax(best_fitness, gen[i].fitness);
-				worst_fitness = fmin(worst_fitness, gen[i].fitness);
-				avg_fitness += gen[i].fitness;
-			}
-			avg_fitness /= gen_size;
-
-			printf("Generation: %d | Snakes: %d | Best Fitness: %f | "
-			       "Worst Fitness: %f | Avg Fitness: %f\n", 
-				gens + 1, gen_size, best_fitness, worst_fitness, avg_fitness);
-
-			find_best(best, gen, best_size, gen_size);
-
-			for (int i = 0; i < gen_size / offspring_size; ++i) {
-				gen_breed(offspring, best, offspring_size, best_size);
-
-				for (int j = 0; j < offspring_size; ++j) {
-					net_copy(new[i * offspring_size + j].n, offspring[j].n);
+					if (check_eat(head, a)) {
+						++score;
+						dead_tracker = 0;
+						increase_snake(&tail);
+						new_apple(head, &a, score);
+					}	
 				}
+				
+				gen[gen_count].fitness += fitness(score, frames);
+				score = 0;
+				frames = 0;
+				dead_tracker = 0;
+				destroy_snake(&head);
+				head = NULL;
+				tail = head;
+				new_snake(&head, &tail);
+				new_apple(head, &a, score);
 			}
 
-			gen_mutate(new, gen_size, -.5, .5);
-			
-			if (++gens == epochs) {
-				showcase = gen[0];
-				gen_destroy(&gen, gen_size);
-				gen_destroy(&best, best_size);
-				gen_destroy(&offspring, offspring_size);
-				gen_destroy(&new, gen_size);
+			gen[gen_count++].fitness /= 100;
 
-				free(topology.vals);
-				topology.vals = NULL;
-				free(inputs.vals);
-				inputs.vals = NULL;	
+			if (gen_count == gen_size) {
+				gen_count = 0;
 
-				m = SHOWCASE;
-			}
-			else {
+				double best_fitness = gen[0].fitness;
+				double worst_fitness = gen[0].fitness;
+				double avg_fitness = 0.0;
+				for (int i = 0; i < gen_size; ++i) {
+					best_fitness = fmax(best_fitness, gen[i].fitness);
+					worst_fitness = fmin(worst_fitness, gen[i].fitness);
+					avg_fitness += gen[i].fitness;
+				}
+				avg_fitness /= gen_size;
+
+				printf("Generation: %d | Snakes: %d | Best Fitness: %.2f | "
+				       "Worst Fitness: %.2f | Avg Fitness: %.2f\n", 
+					gens + 1, gen_size, best_fitness, worst_fitness, avg_fitness);
+					
+				find_best(best, gen, best_size, gen_size);
+				for (int i = 0; i < gen_size / best_size; ++i) {
+					gen_sbx_crossover(offspring, best, best_size);
+
+					for (int j = 0; j < best_size; ++j) {
+						net_copy(new[i * best_size + j].n, offspring[j].n);
+					}
+
+					shuffle(best, sizeof(specimen), best_size);
+				}
+
+				gen_mutate(new, gen_size, mutation_rate, mean, stddev);
+				
+				if (++gens % progress_report == 0) {
+					qsort(gen, gen_size, sizeof(specimen), compare_fitness);
+					showcase = &gen[0];
+				}	
+				
 				gen_copy(&gen, new, gen_size);
 			}
 		}
-	}
 
-	SDL_Window *window;
-	SDL_Renderer *renderer;
+		if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+			printf("Couldn't initialize SDL %s\n", SDL_GetError());
+			return 1;
+		}
 
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		printf("Couldn't initialize SDL %s\n", SDL_GetError());
-		return 1;
-	}
+		SDL_Window *window = SDL_CreateWindow(
+			"Snake",
+			WINDOW_X,
+			WINDOW_Y,
+			WINDOW_WIDTH,
+			WINDOW_HEIGHT,
+			SDL_WINDOW_BORDERLESS
+		);
 
-	if (TTF_Init() < 0) {
-		printf("Couldn't initialize TTF %s\n", TTF_GetError());
-		return 1;
-	}
+		if (!window) {
+			printf("Couldn't open window %s\n", SDL_GetError());
+			return 1;
+		}
 
-	window = SDL_CreateWindow(
-		"Snake",
-		WINDOW_X,
-		WINDOW_Y,
-		WINDOW_WIDTH,
-		WINDOW_HEIGHT,
-		SDL_WINDOW_BORDERLESS
-	);
+		SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-	if (!window) {
-		printf("Couldn't open window %s\n", SDL_GetError());
-		return 1;
-	}
-
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-
-	if (!renderer) {
-		printf("Couldn't initialize renderer %s\n", SDL_GetError());
-		return 1;
-	}
-	
-	bool quit = false;
-	SDL_Event event;
-
-	while (!quit) {
-		SDL_SetRenderDrawColor(renderer, 0x22, 0x22, 0x22, 0xFF);
-		SDL_RenderClear(renderer);
-		
-		get_inputs(inputs, head, tail, a);
-		change_direction(inputs, showcase, &head);
-
-		if (get_game_over(head, &tail, &a, &score)) {
-			score = 0;
-			timer = 0;
-			destroy_snake(&head->next);
-			tail = head;
-			new_snake(&head, &tail);
-			new_apple(head, &a, score);
+		if (!renderer) {
+			printf("Couldn't initialize renderer %s\n", SDL_GetError());
+			return 1;
 		}
 		
-		render_background(renderer);
-		render_snake(renderer, head);
-		render_apple(renderer, a);
-		render_score(renderer, score);
-		render_time(renderer, timer);
+		SDL_Event event;
+		bool quit = false;
 
-		SDL_RenderPresent(renderer);
-
-		while (SDL_PollEvent(&event)) {
-			if (event.type == SDL_QUIT) {
-				quit = true;
-			}
+		while (!check_collisions(head) && !quit) {
+			SDL_SetRenderDrawColor(renderer, 0x22, 0x22, 0x22, 0xFF);
+			SDL_RenderClear(renderer);
 			
-			if (SDL_GetKeyboardState(NULL)[SDL_SCANCODE_ESCAPE]) {
-				quit = true;
+			get_inputs(inputs, head, a);
+			change_direction(inputs, *showcase, head);
+			move_snake(head);
+		
+			if (check_eat(head, a)) {
+				increase_snake(&tail);
+				new_apple(head, &a, score);
 			}
-		}	
 
-		SDL_Delay(120);
-		timer += 120.0 / 1000.0;
+			while (SDL_PollEvent(&event)) {
+				if (event.type == SDL_KEYUP && event.key.keysym.sym == SDLK_ESCAPE) {
+					quit = true;
+				}
+			}
+
+			render_background(renderer);
+			render_snake(renderer, head);
+			render_apple(renderer, a);
+
+			SDL_RenderPresent(renderer);
+			SDL_Delay(120);
+		}
+
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyWindow(window);
+		destroy_snake(&head);
+		head = NULL;
+		tail = head;
+		new_snake(&head, &tail);
+		new_apple(head, &a, score);
+		showcase = NULL;
 	}
 
+	gen_destroy(&gen, gen_size);
+	gen_destroy(&best, best_size);
+	gen_destroy(&offspring, best_size);
+	gen_destroy(&new, gen_size);
+	free(inputs.vals);
+	inputs.vals = NULL;
 	destroy_snake(&head);
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
 	SDL_Quit();
 
 	return 0;

@@ -64,7 +64,6 @@ void gen_destroy(specimen **gen, int size)
 	}
 
 	free(*gen);
-	*gen = NULL;
 }
 
 void gen_copy(specimen **destination, specimen *gen, int size)
@@ -87,28 +86,29 @@ void find_best(specimen *destination, specimen *gen, int new_size, int current_s
 {
 	assert(destination[0].n.layers == gen[0].n.layers);
 	assert(mat_compare(destination[0].n.topology, gen[0].n.topology));
-	assert(current_size % 2 == 0);
+	assert(current_size % new_size == 0);
 	
 	qsort(gen, current_size, sizeof(specimen), compare_fitness);
 	for (int i = 0; i < new_size; ++i) {
+		destination[i].fitness = gen[i].fitness;
 		net_copy(destination[i].n, gen[i].n);
 	}
 }
 
-void gen_sbx_crossover(specimen *destination, specimen *gen, int size)
+void gen_spx(specimen *destination, specimen *gen, int size)
 {
 	assert(destination[0].n.layers == gen[0].n.layers);
 	assert(mat_compare(destination[0].n.topology, gen[0].n.topology));
 	assert(size % 2 == 0);
 	
 	for (int i = 0; i < size; i += 2) {
-		net_sbx_crossover(destination[i].n, destination[i + 1].n, gen[i].n, gen[i + 1].n);
+		net_spx(destination[i].n, destination[i + 1].n, gen[i].n, gen[i + 1].n);
 	}
 }
 
-void gen_mutate(specimen *destination, int size, double rate, double mean, double stddev)
+void gen_mutate(specimen *gen, int size, double rate, double mean, double stddev)
 {
 	for (int i = 0; i < size; ++i) {
-		net_mutate(destination[i].n, rate, mean, stddev);
+		net_mutate(gen[i].n, rate, mean, stddev);
 	}
 }

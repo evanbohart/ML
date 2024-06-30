@@ -13,6 +13,8 @@
 #define WINDOW_HEIGHT 600
 #define TILE_WIDTH 30
 #define TILE_HEIGHT 30
+#define MAX_X WINDOW_WIDTH / TILE_WIDTH
+#define MAX_Y WINDOW_HEIGHT / TILE_HEIGHT
 
 enum {
 	LEFT,
@@ -33,10 +35,11 @@ typedef struct apple {
 	int y;
 } apple;
 
-int random_coord(int min, int max) { return rand() % (max - min + 1) + min; }
+int random_coord(int min, int max) { return rand() % (max - min) + min; }
 
 void increase_snake(snake_part **tail)
 {
+	assert(*tail);
 	(*tail)->next = malloc(sizeof(snake_part));
 	assert((*tail)->next != NULL);
 
@@ -62,17 +65,19 @@ void increase_snake(snake_part **tail)
 			break;
 	}
 
-	(*tail) = (*tail)->next;
+	*tail = (*tail)->next;
 }
 
 void new_snake(snake_part **head, snake_part **tail)
 {
-	(*head) = malloc(sizeof(snake_part));
+	assert(!*head);
+	assert(!*tail);
+	*head = malloc(sizeof(snake_part));
 
-	(*head)->x = random_coord((2 * WINDOW_WIDTH) / (5 * TILE_WIDTH), (WINDOW_WIDTH * 3) / (5 * TILE_WIDTH));
-	(*head)->y = random_coord((2 * WINDOW_HEIGHT) / (5 * TILE_HEIGHT), (WINDOW_HEIGHT * 3) / (5 * TILE_HEIGHT));
+	(*head)->x = random_coord(2 * MAX_X / 5, 3 * MAX_X / 5);
+	(*head)->y = random_coord(2 * MAX_Y / 5, 3 * MAX_Y / 5);
 	(*head)->dir = rand() % 4;
-	(*tail) = (*head);
+	*tail = *head;
 	(*tail)->next = NULL;
 
 	for (int i = 0; i < 3; ++i) {
@@ -90,8 +95,6 @@ void destroy_snake(snake_part **head)
 		free(current);
 		current = next;
 	}
-
-	*head = NULL;
 }
 
 void move_snake(snake_part *head)
@@ -128,8 +131,8 @@ void move_snake(snake_part *head)
 
 bool check_collisions(snake_part *head)
 {
-	if (head->x < 0 || head->x > WINDOW_WIDTH / TILE_WIDTH - 1 ||
-	    head->y < 0 || head->y > WINDOW_HEIGHT / TILE_HEIGHT - 1) {
+	if (head->x < 0 || head->x >= MAX_X ||
+	    head->y < 0 || head->y >= MAX_Y) {
 		return true;
 	}
 
@@ -160,22 +163,20 @@ void new_apple(snake_part *head, apple *a, int score)
 	int snake_ys[score + 4];
 
 	snake_part *current = head;
-	int i = 0;
-	while (current) {
+
+	for (int i = 0; i < score + 4; ++i) {
 		snake_xs[i] = current->x;
 		snake_ys[i] = current->y;
-		++i;
-
 		current = current->next;
 	}
 
 	bool valid = false;
 	while (!valid) {
-		a->x = random_coord(0, WINDOW_WIDTH / TILE_WIDTH - 1);
-		a->y = random_coord(0, WINDOW_HEIGHT / TILE_HEIGHT - 1);
+		a->x = random_coord(0, MAX_X);
+		a->y = random_coord(0, MAX_Y);
 
 		valid = true;
-		for (int i = 0; i < score; ++i) {
+		for (int i = 0; i < score + 4; ++i) {
 			if (snake_xs[i] == a->x && snake_ys[i] == a->y) {
 				valid = false;
 			}
@@ -187,8 +188,8 @@ void render_background(SDL_Renderer *renderer)
 {
 	SDL_SetRenderDrawColor(renderer, 0x3B, 0x3B, 0x3B, 0xFF);
 
-	for (int i = 0; i < WINDOW_WIDTH / TILE_WIDTH; ++i) {
-		for (int j = 0; j < WINDOW_HEIGHT / TILE_HEIGHT; ++j) {
+	for (int i = 0; i < MAX_X; ++i) {
+		for (int j = 0; j < MAX_Y; ++j) {
 			SDL_Rect rect;
 			rect.w = TILE_WIDTH;
 			rect.h = TILE_HEIGHT;
@@ -236,83 +237,130 @@ void render_apple(SDL_Renderer *renderer, apple a)
 	SDL_RenderFillRect(renderer, &rect);
 }
 
-double gaussian(double x) { return exp(-(pow(x, 2) / 20)); }
-
-void get_inputs(mat inputs, snake_part *head, apple a)
+void get_inputs(mat inputs, snake_part *head, snake_part *tail, apple a)
 {
-	mat_at(inputs, 0, 0) = gaussian(head->x);
-	mat_at(inputs, 1, 0) = gaussian(WINDOW_WIDTH / TILE_WIDTH - 1 - head->x);
-	mat_at(inputs, 2, 0) = gaussian(WINDOW_HEIGHT / TILE_HEIGHT - 1 - head->y);
-	mat_at(inputs, 3, 0) = gaussian(head->y);
+	double head_obstacle_left = head->x + 1;
+    	double head_obstacle_right = MAX_X - head->x;
+    	double head_obstacle_down = MAX_Y - head->y;
+    	double head_obstacle_up = head->y + 1;
+    	double head_obstacle_left_down = fmin(head->x, MAX_Y - 1 - head->y) * sqrt(2);
+    	double head_obstacle_right_down = fmin(MAX_X - 1 - head->x, MAX_Y - 1 - head->y) * sqrt(2);
+    	double head_obstacle_left_up = fmin(head->x, head->y) * sqrt(2);
+    	double head_obstacle_right_up = fmin(MAX_X - 1 - head->x, head->y) * sqrt(2);
 
-	int distance_self_left = 0;
-	int distance_self_right = 0;
-	int distance_self_down = 0;
-	int distance_self_up = 0;
-	
-	bool has_turned = false;
-	snake_part *current = head;
-	while (current) {
-		if (current->dir != head->dir) has_turned = true;
+    	snake_part *current = head->next;
+    	while (current) { 
+       		if (current->y == head->y) {
+           		if (current->x < head->x) {
+                		head_obstacle_left = fmin(head_obstacle_left, head->x - current->x);
+            		}
+           		else if (current->x > head->x) {
+                		head_obstacle_right = fmin(head_obstacle_right, current->x - head->x);
+            		}
+        	}
 
-		if (has_turned && current->y == head->y) {
-			if (current->x < head->x) {
-				distance_self_left = fmin(distance_self_left, head->x - current->x);
-			}
-			else if (current->x > head->x) {
-				distance_self_right = fmin(distance_self_right, current->x - head->x);
-			}
-		}
+        	if (current->x == head->x) {
+            		if (current->y > head->y) {
+                		head_obstacle_down = fmin(head_obstacle_down, current->y - head->y);
+           	 	}
+           	 	else if (current->y < head->y) {
+                		head_obstacle_up = fmin(head_obstacle_up, head->y - current->y);
+            		}
+        	}
 
-		if (has_turned && current->x == head->x) {
-			if (current->y > head->y) {
-				distance_self_down = fmin(distance_self_down, current->y - head->y);
-			}
-			else if (current->y < head->y) {
-				distance_self_up = fmin(distance_self_up, head->y - current->y);
-			}
-		}
+        	if (current->x - head->x == current->y - head->y) {
+        		if (current->y < head->y) {
+        			head_obstacle_left_down = fmin(head_obstacle_left_down, (head->x - current->x) * sqrt(2));
+            		}
+            		else {
+				head_obstacle_right_up = fmin(head_obstacle_right_up, (current->y - head->y) * sqrt(2));
+            		}
+        	}
 
-		current = current->next;
+        	if (current->x + head->x == current->y - head->y) {
+           		if (current->y < head->y) {
+                		head_obstacle_right_down = fmin(head_obstacle_right_down, (current->y - head->y) * sqrt(2));
+            		}
+            		else {
+                		head_obstacle_left_up = fmin(head_obstacle_left_up, (head->x - current->x) * sqrt(2));
+          	  	}
+        	}
+
+       	 	current = current->next;
 	}
 
-	mat_at(inputs, 4, 0) = distance_self_left > 0 ? gaussian(distance_self_left) : 0;
-	mat_at(inputs, 5, 0) = distance_self_right > 0 ? gaussian(distance_self_right) : 0;
-	mat_at(inputs, 6, 0) = distance_self_down > 0 ? gaussian(distance_self_down) : 0;
-	mat_at(inputs, 7, 0) = distance_self_up > 0 ? gaussian(distance_self_up) : 0;
+	mat_at(inputs, 0, 0) = head_obstacle_left == 1;
+	mat_at(inputs, 1, 0) = head_obstacle_right == 1;
+	mat_at(inputs, 2, 0) = head_obstacle_down == 1;
+	mat_at(inputs, 3, 0) = head_obstacle_up == 1;
+	mat_at(inputs, 4, 0) = head_obstacle_left_down == sqrt(2);
+	mat_at(inputs, 5, 0) = head_obstacle_right_down == sqrt(2);
+	mat_at(inputs, 6, 0) = head_obstacle_left_up == sqrt(2);
+	mat_at(inputs, 7, 0) = head_obstacle_right_up == sqrt(2);
 
-	int distance_apple_left = 0;
-	int distance_apple_right = 0;
-	int distance_apple_down = 0;
-	int distance_apple_up = 0;
+	int head_apple_left = 0;
+	int head_apple_right = 0;
+	int head_apple_down = 0;
+	int head_apple_up = 0;
+	int head_apple_left_down = 0;
+	int head_apple_right_down = 0;
+	int head_apple_left_up = 0;
+	int head_apple_right_up = 0;
 
-	if (head->y == a.y) {
-		if (a.x < head->x) {
-			distance_apple_left = head->x - a.x;
+	if (a.y == head->y) {
+   		if (a.x < head->x) {
+              		head_apple_left = head_obstacle_left > (head->x - a.x);
 		}
-		else if (a.x > head->x) {
-			distance_apple_right = a.x - head->x;
+           	else {
+                	head_apple_right = head_obstacle_right > (a.x - head->x);
 		}
 	}
 
-	if (head->x == a.x) {
-		if (a.y > head->y) {
-			distance_apple_down = head->y - a.y;
+	if (a.x == head->x) {
+    		if (a.y > head->y) {
+                	head_apple_down = head_obstacle_down > (a.y - head->y);
 		}
-		else if (a.y < head->y) {
-			distance_apple_up = a.y - head->y;
+         	else {
+        		head_apple_up = head_obstacle_up > (head->y - a.y);
 		}
-	}
+        }
 
-	mat_at(inputs, 8, 0) = distance_apple_left > 0 ? gaussian(distance_apple_left) : 0;
-	mat_at(inputs, 9, 0) = distance_apple_right > 0 ? gaussian(distance_apple_right) : 0;
-	mat_at(inputs, 10, 0) = distance_apple_down > 0 ? gaussian(distance_apple_down) : 0;
-	mat_at(inputs, 11, 0) = distance_apple_up > 0 ? gaussian(distance_apple_up) : 0;
+        if (a.x - head->x == a.y - head->y) {
+		if (a.y < head->y) {
+			head_apple_left_down = head_obstacle_left_down > ((head->x - a.x) * sqrt(2));		
+		}
+		else {
+			head_apple_right_up = head_obstacle_right_up > ((a.y - head->y) * sqrt(2));	
+		}
+        }
 
-	mat_at(inputs, 12, 0) = head->dir == LEFT ? 1 : 0;
-	mat_at(inputs, 13, 0) = head->dir == RIGHT ? 1 : 0;
-	mat_at(inputs, 14, 0) = head->dir == DOWN ? 1 : 0;
-	mat_at(inputs, 15, 0) = head->dir == UP ? 1 : 0;
+        if (a.x + head->x == a.y - head->y) {
+		if (a.y < head->y) {
+			head_apple_right_down = head_obstacle_right_down > ((a.y - head->y) * sqrt(2));
+		}
+		else {
+			head_apple_left_up = head_obstacle_left_up > ((head->x - a.x) * sqrt(2));
+		}
+        }
+
+	mat_at(inputs, 8, 0) = head_apple_left;
+	mat_at(inputs, 9, 0) = head_apple_right;
+	mat_at(inputs, 10, 0) = head_apple_down;
+	mat_at(inputs, 11, 0) = head_apple_up;
+	mat_at(inputs, 12, 0) = head_apple_left_down;
+	mat_at(inputs, 13, 0) = head_apple_right_down;
+	mat_at(inputs, 14, 0) = head_apple_left_up;
+	mat_at(inputs, 15, 0) = head_apple_right_up;
+
+	mat_at(inputs, 16, 0) = head->dir == LEFT;
+	mat_at(inputs, 17, 0) = head->dir == RIGHT;
+	mat_at(inputs, 18, 0) = head->dir == DOWN;
+	mat_at(inputs, 19, 0) = head->dir == UP;
+
+	mat_at(inputs, 20, 0) = tail->dir == LEFT;
+	mat_at(inputs, 21, 0) = tail->dir == RIGHT;
+	mat_at(inputs, 22, 0) = tail->dir == DOWN;
+	mat_at(inputs, 23, 0) = tail->dir == UP;
 }
 
 void change_direction(mat inputs, specimen snake, snake_part *head) 
@@ -331,34 +379,43 @@ void change_direction(mat inputs, specimen snake, snake_part *head)
 	head->dir = output;
 }
 
-double fitness(int score, int frames) { return sqrt(frames * pow(2, 2 * score)); }
+double fitness(double score, double frames) 
+{
+	if (score == 0 && frames == 100) {
+		return 0;
+	}
+
+	return log2(frames + 500 * pow(score, 2) + pow(2, score) - score * frames * .25);
+}
 
 int main() 
 {
 	int score = 0;
 	int frames = 0;
 	int dead_tracker = 0;
+	int dead = 100;
 	
 	srand(time(0));
 	snake_part *head = NULL;
-	snake_part *tail = head;
+	snake_part *tail = NULL;
 	new_snake(&head, &tail);
 	apple a;
 	new_apple(head, &a, score);
 	
-	int layers = 3;
+	int layers = 4;
 	mat topology = mat_alloc(layers, 1);
-	mat_at(topology, 0, 0) = 16;
-	mat_at(topology, 1, 0) = 8;
-	mat_at(topology, 2, 0) = 4;
+	mat_at(topology, 0, 0) = 24;
+	mat_at(topology, 1, 0) = 20;
+	mat_at(topology, 2, 0) = 16;
+	mat_at(topology, 3, 0) = 4;
 	mat inputs = mat_alloc(mat_at(topology, 0, 0), 1);
 	
 	int gens = 0;
 	int gen_count = 0;
-	int epochs = 400;
-	int progress_report = 100;
-	int gen_size = 1000;
-	int best_size = 200;
+	int epochs = 1500;
+	int progress_report = 300;
+	int gen_size = 500;
+	int best_size = 100;
 
 	specimen *gen = gen_alloc(gen_size, layers, topology);
 	for (int i = 0; i < gen_size; ++i) {
@@ -369,67 +426,70 @@ int main()
 	specimen *best = gen_alloc(best_size, layers, topology);
 	specimen *offspring = gen_alloc(best_size, layers, topology);
 
-
 	free(topology.vals);
-	topology.vals = NULL;
 
 	double mutation_rate = 5e-2;
 	double mean = 0;
 	double stddev = 1;
 
-	specimen *showcase = NULL;
+	bool training = true;
+	specimen showcase = gen[0];
 	
-	while (gens != epochs) {
-		while (!showcase) {
-			for (int i = 0; i < 100; ++i) {
-				while (!check_collisions(head) && dead_tracker < 200) {
-					++frames;
-					++dead_tracker;
-					get_inputs(inputs, head, a);
-					change_direction(inputs, gen[gen_count], head);	
-					move_snake(head);
+	while (gens < epochs) {
+		while (training) {
+			while (!check_collisions(head) && dead_tracker < dead) {
+				++frames;
+				++dead_tracker;
+				get_inputs(inputs, head, tail, a);
+				change_direction(inputs, gen[gen_count], head);	
+				move_snake(head);
 
-					if (check_eat(head, a)) {
-						++score;
-						dead_tracker = 0;
-						increase_snake(&tail);
-						new_apple(head, &a, score);
-					}	
-				}
-				
-				gen[gen_count].fitness += fitness(score, frames);
-				score = 0;
-				frames = 0;
-				dead_tracker = 0;
-				destroy_snake(&head);
-				head = NULL;
-				tail = head;
-				new_snake(&head, &tail);
-				new_apple(head, &a, score);
+				if (check_eat(head, a)) {
+					++score;
+					++dead;
+					dead_tracker = 0;
+					increase_snake(&tail);
+					new_apple(head, &a, score);
+				}	
 			}
 
-			gen[gen_count++].fitness /= 100;
+			gen[gen_count++].fitness = fitness(score, frames);
+			score = 0;
+			frames = 0;
+			dead = 100;
+			dead_tracker = 0;
+			destroy_snake(&head);
+			head = NULL;
+			tail = NULL;
+			new_snake(&head, &tail);
+			new_apple(head, &a, score);
 
 			if (gen_count == gen_size) {
 				gen_count = 0;
-
-				double best_fitness = gen[0].fitness;
-				double worst_fitness = gen[0].fitness;
-				double avg_fitness = 0.0;
-				for (int i = 0; i < gen_size; ++i) {
-					best_fitness = fmax(best_fitness, gen[i].fitness);
-					worst_fitness = fmin(worst_fitness, gen[i].fitness);
-					avg_fitness += gen[i].fitness;
-				}
-				avg_fitness /= gen_size;
-
-				printf("Generation: %d | Snakes: %d | Best Fitness: %.2f | "
-				       "Worst Fitness: %.2f | Avg Fitness: %.2f\n", 
-					gens + 1, gen_size, best_fitness, worst_fitness, avg_fitness);
-					
+				++gens;
 				find_best(best, gen, best_size, gen_size);
+
+				double best_fitness = best[0].fitness;
+				double selection_avg = 0.0;
+				double selection_stddev = 0;
+				for (int i = 0; i < best_size; ++i) {
+					selection_avg += best[i].fitness;
+				}
+
+				selection_avg /= best_size;
+
+				for (int i = 0; i < best_size; ++i) {
+					selection_stddev += pow(best[i].fitness - selection_avg, 2);
+				}
+				
+				selection_stddev /= best_size;
+				selection_stddev = sqrt(selection_stddev);
+				
+				printf("Generation: %d | Snakes: %d | Best: %.2f | Selection Avg: %.2f | Selection Stddev: %.2f\n", 
+					gens, gen_size, best_fitness, selection_avg, selection_stddev);
+	
 				for (int i = 0; i < gen_size / best_size; ++i) {
-					gen_sbx_crossover(offspring, best, best_size);
+					gen_spx(offspring, best, best_size);
 
 					for (int j = 0; j < best_size; ++j) {
 						net_copy(new[i * best_size + j].n, offspring[j].n);
@@ -437,13 +497,17 @@ int main()
 
 					shuffle(best, sizeof(specimen), best_size);
 				}
-
+					
 				gen_mutate(new, gen_size, mutation_rate, mean, stddev);
 				
-				if (++gens % progress_report == 0) {
-					qsort(gen, gen_size, sizeof(specimen), compare_fitness);
-					showcase = &gen[0];
-				}	
+				qsort(best, best_size, sizeof(specimen), compare_fitness);
+				if (best[0].fitness > showcase.fitness) {
+					showcase = best[0];
+				}
+
+				if (gens % progress_report == 0) {
+					training = false;
+				}
 				
 				gen_copy(&gen, new, gen_size);
 			}
@@ -464,7 +528,7 @@ int main()
 		);
 
 		if (!window) {
-			printf("Couldn't open window %s\n", SDL_GetError());
+			printf("Couldn't initialize window %s\n", SDL_GetError());
 			return 1;
 		}
 
@@ -482,11 +546,12 @@ int main()
 			SDL_SetRenderDrawColor(renderer, 0x22, 0x22, 0x22, 0xFF);
 			SDL_RenderClear(renderer);
 			
-			get_inputs(inputs, head, a);
-			change_direction(inputs, *showcase, head);
+			get_inputs(inputs, head, tail, a);
+			change_direction(inputs, showcase, head);
 			move_snake(head);
 		
 			if (check_eat(head, a)) {
+				++score;
 				increase_snake(&tail);
 				new_apple(head, &a, score);
 			}
@@ -505,24 +570,24 @@ int main()
 			SDL_Delay(120);
 		}
 
-		SDL_DestroyRenderer(renderer);
-		SDL_DestroyWindow(window);
+		score = 0;
 		destroy_snake(&head);
 		head = NULL;
-		tail = head;
+		tail = NULL;
+		training = true;
 		new_snake(&head, &tail);
 		new_apple(head, &a, score);
-		showcase = NULL;
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyWindow(window);
+		SDL_Quit();
 	}
 
+	free(inputs.vals);
+
 	gen_destroy(&gen, gen_size);
+	gen_destroy(&new, gen_size);
 	gen_destroy(&best, best_size);
 	gen_destroy(&offspring, best_size);
-	gen_destroy(&new, gen_size);
-	free(inputs.vals);
-	inputs.vals = NULL;
-	destroy_snake(&head);
-	SDL_Quit();
-
+	
 	return 0;
 }

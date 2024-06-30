@@ -57,7 +57,7 @@ void net_rand_biases(net n, double min, double max);
 void net_zero(net n);
 void feed_forward(net n, mat inputs, func a);
 double get_cost(mat outputs, mat targets);
-void net_sbx_crossover(net destination1, net destination2, net n1, net n2);
+void net_spx(net child1, net child2, net parent1, net parent2);
 void net_mutate(net n, double rate, double mean, double stddev);
 
 typedef struct specimen {
@@ -70,7 +70,7 @@ void gen_destroy(specimen **gen, int size);
 void gen_copy(specimen **destination, specimen *gen, int size);
 int compare_fitness(const void *p, const void *d);
 void find_best(specimen *desintation, specimen *gen, int new_size, int current_size);
-void gen_sbx_crossover(specimen *destination, specimen *gen, int size);
+void gen_spx(specimen *destination, specimen *gen, int size);
 void gen_mutate(specimen *gen, int size, double rate, double mean, double std_dev);
 
 #endif

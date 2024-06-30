@@ -53,27 +53,18 @@ net net_alloc(int layers, mat topology)
 
 void net_destroy(net *n) {
 	free(n->topology.vals);
-	n->topology.vals = NULL;
 
 	for (int i = 0; i < n->layers - 1; ++i) {
 		free(n->lins[i].vals);
-		n->lins[i].vals = NULL;
 		free(n->acts[i].vals);
-		n->acts[i].vals = NULL;
 		free(n->weights[i].vals);
-		n->weights[i].vals = NULL;
 		free(n->biases[i].vals);
-		n->biases[i].vals = NULL;
 	}
 
 	free(n->lins);
-	n->lins = NULL;
 	free(n->acts);
-	n->acts = NULL;
 	free(n->weights);
-	n->weights = NULL;
 	free(n->biases);
-	n->biases = NULL;
 }
 
 void net_copy(net destination, net n)
@@ -153,37 +144,35 @@ double get_cost(mat outputs, mat targets)
 	return cost / (outputs.rows * outputs.cols);
 }
 
-void net_sbx_crossover(net destination1, net destination2, net n1, net n2)
+void net_spx(net child1, net child2, net parent1, net parent2)
 {
-	assert(destination1.layers == destination2.layers);
-	assert(destination1.layers == n1.layers);
-	assert(destination1.layers == n2.layers);
-	assert(mat_compare(destination1.topology, destination2.topology));
-	assert(mat_compare(destination1.topology, n1.topology));
-	assert(mat_compare(destination1.topology, n2.topology));
+	assert(mat_compare(child1.topology, child2.topology));
+	assert(mat_compare(child1.topology, parent1.topology));
+	assert(mat_compare(child1.topology, parent2.topology));
+	
 
-	for (int i = 0; i < destination1.layers - 1; ++i) {
-		int crossover_point = rand() % destination1.weights[i].rows;
+	for (int i = 0; i < child1.layers - 1; ++i) {
+		int crossover_point = rand() % (child1.weights[i].rows - 1) + 1;
 
-		for (int j = 0; j < destination1.weights[i].rows; ++j) {
-			for (int k = 0; k < destination1.weights[i].cols; ++k) {
+		for (int j = 0; j < child1.weights[i].rows; ++j) {
+			for (int k = 0; k < child1.weights[i].cols; ++k) {
 				if (j < crossover_point) {
-					mat_at(destination1.weights[i], j, k) = mat_at(n1.weights[i], j, k);
-					mat_at(destination2.weights[i], j, k) = mat_at(n2.weights[i], j, k);
+					mat_at(child1.weights[i], j, k) = mat_at(parent1.weights[i], j, k);
+					mat_at(child1.weights[i], j, k) = mat_at(parent2.weights[i], j, k);
 				}
 				else {
-					mat_at(destination1.weights[i], j, k) = mat_at(n2.weights[i], j, k);
-					mat_at(destination2.weights[i], j, k) = mat_at(n1.weights[i], j, k);
+					mat_at(child1.weights[i], j, k) = mat_at(parent2.weights[i], j, k);
+					mat_at(child2.weights[i], j, k) = mat_at(parent1.weights[i], j, k);
 				}
 			}
 
 			if (j < crossover_point) {
-				mat_at(destination1.biases[i], j, 1) = mat_at(n1.biases[i], j, 1);
-				mat_at(destination2.biases[i], j, 1) = mat_at(n2.biases[i], j, 1);
+				mat_at(child1.biases[i], j, 0) = mat_at(parent1.biases[i], j, 0);
+				mat_at(child1.biases[i], j, 0) = mat_at(parent2.biases[i], j, 0);
 			}
 			else {
-				mat_at(destination1.biases[i], j, 1) = mat_at(n2.biases[i], j, 1);
-				mat_at(destination2.biases[i], j, 1) = mat_at(n1.biases[i], j, 1);
+				mat_at(child1.biases[i], j, 0) = mat_at(parent2.biases[i], j, 0);
+				mat_at(child2.biases[i], j, 0) = mat_at(parent1.biases[i], j, 0);
 			}
 		}
 	}
@@ -201,7 +190,7 @@ void net_mutate(net n, double rate, double mean, double stddev)
 
 		for (int j = 0; j < n.biases[i].rows; ++j) {
 			double chance = rand_double(0, 1);
-			mat_at(n.biases[i], j, 1) += chance < rate ? rand_normal(mean, stddev) : 0;
+			mat_at(n.biases[i], j, 0) += chance < rate ? rand_normal(mean, stddev) : 0;
 		}
 	}
 }

@@ -158,7 +158,7 @@ void net_spx(net child1, net child2, net parent1, net parent2)
 			for (int k = 0; k < child1.weights[i].cols; ++k) {
 				if (j < crossover_point) {
 					mat_at(child1.weights[i], j, k) = mat_at(parent1.weights[i], j, k);
-					mat_at(child1.weights[i], j, k) = mat_at(parent2.weights[i], j, k);
+					mat_at(child2.weights[i], j, k) = mat_at(parent2.weights[i], j, k);
 				}
 				else {
 					mat_at(child1.weights[i], j, k) = mat_at(parent2.weights[i], j, k);

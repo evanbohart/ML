@@ -1,6 +1,7 @@
 #include "nn.h"
+#include "utils.h"
+#include <math.h>
 #include <assert.h>
-#include <stdio.h>
 
 double sig(double x) { return 1 / (1 + exp(x)); }
 
@@ -158,7 +159,7 @@ void net_spx(net child1, net child2, net parent1, net parent2)
 			for (int k = 0; k < child1.weights[i].cols; ++k) {
 				if (j < crossover_point) {
 					mat_at(child1.weights[i], j, k) = mat_at(parent1.weights[i], j, k);
-					mat_at(child1.weights[i], j, k) = mat_at(parent2.weights[i], j, k);
+					mat_at(child2.weights[i], j, k) = mat_at(parent2.weights[i], j, k);
 				}
 				else {
 					mat_at(child1.weights[i], j, k) = mat_at(parent2.weights[i], j, k);
@@ -168,7 +169,7 @@ void net_spx(net child1, net child2, net parent1, net parent2)
 
 			if (j < crossover_point) {
 				mat_at(child1.biases[i], j, 0) = mat_at(parent1.biases[i], j, 0);
-				mat_at(child1.biases[i], j, 0) = mat_at(parent2.biases[i], j, 0);
+				mat_at(child2.biases[i], j, 0) = mat_at(parent2.biases[i], j, 0);
 			}
 			else {
 				mat_at(child1.biases[i], j, 0) = mat_at(parent2.biases[i], j, 0);
@@ -184,7 +185,7 @@ void net_mutate(net n, double rate, double mean, double stddev)
 		for (int j = 0; j < n.weights[i].rows; ++j) {
 			for (int k = 0; k < n.weights[i].cols; ++k) {
 				double chance = rand_double(0, 1);
-				mat_at(n.weights[i], j, k) += chance < rate ? rand_normal(mean, stddev) : 0;			
+				mat_at(n.weights[i], j, k) += chance < rate ? rand_normal(mean, stddev) : 0;
 			}
 		}
 
@@ -193,4 +194,24 @@ void net_mutate(net n, double rate, double mean, double stddev)
 			mat_at(n.biases[i], j, 0) += chance < rate ? rand_normal(mean, stddev) : 0;
 		}
 	}
+}
+
+void net_load(net *n, FILE **f)
+{
+  for (int i = 0; i < n->layers - 1; ++i) {
+    mat_load(&n->lins[i], f);
+    mat_load(&n->acts[i], f);
+    mat_load(&n->weights[i], f);
+    mat_load(&n->biases[i], f);
+  }
+}
+
+void net_save(net n, char *path)
+{
+  for (int i = 0; i < n.layers - 1; ++i) {
+    mat_save(n.lins[i], path);
+    mat_save(n.acts[i], path);
+    mat_save(n.weights[i], path);
+    mat_save(n.biases[i], path);
+  }
 }

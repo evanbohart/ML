@@ -1,8 +1,7 @@
 #include "nn.h"
+#include "utils.h"
 #include <stdio.h>
 #include <assert.h>
-
-double rand_double(double min, double max) { return (max - min) * rand() / RAND_MAX + min; }
 
 mat mat_alloc(int rows, int cols)
 {
@@ -157,10 +156,32 @@ void mat_func(mat destination, mat m, func f)
 
 void mat_print(mat m)
 {
+  assert(m.vals != NULL);
+
 	for (int i = 0; i < m.rows; ++i) {
 		for (int j = 0; j < m.cols; ++j) {
 			printf("%f ", mat_at(m, i, j));
 		}
 		printf("\n");
 	}
+}
+
+void mat_load(mat *m, FILE **f)
+{
+  assert(f != NULL);
+
+  fread(&m->rows, sizeof(int), 1, *f);
+  fread(&m->cols, sizeof(int), 1, *f);
+  fread(m->vals, sizeof(double) * m->rows * m->cols, 1, *f);
+}
+
+void mat_save(mat m, char *path)
+{
+  FILE *f = fopen(path, "ab");
+  assert(f != NULL);
+
+  fwrite(&m.rows, sizeof(int), 1, f);
+  fwrite(&m.cols, sizeof(int), 1, f);
+  fwrite(m.vals, sizeof(double) * m.rows * m.cols, 1, f);
+  fclose(f);
 }

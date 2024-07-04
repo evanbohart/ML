@@ -1,12 +1,8 @@
 #ifndef NN_H
 #define NN_H
 
+#include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-
-double rand_double(double min, double max);
-double rand_normal(double mean, double stddev);
-void shuffle(void *arr, size_t type_size, int arr_size);
 
 typedef struct mat {
 	int rows;
@@ -17,6 +13,11 @@ typedef struct mat {
 #define mat_at(m, row, col) ((m).vals[(row) * (m).cols + (col)])
 
 typedef double (*func)(double);
+
+double sig(double x);
+double dsig(double x);
+double relu(double x);
+double drelu(double x);
 
 mat mat_alloc(int rows, int cols);
 int mat_compare(mat m1, mat m2);
@@ -31,11 +32,8 @@ void mat_trans(mat destination, mat m);
 void mat_scale(mat destination, mat m, double a);
 void mat_func(mat destination, mat m, func f);
 void mat_print(mat m);
-
-double sig(double x);
-double dsig(double x);
-double relu(double x);
-double drelu(double x);
+void mat_load(mat *m, FILE **f);
+void mat_save(mat m, char *path);
 
 typedef struct net {
 	int layers;
@@ -46,8 +44,6 @@ typedef struct net {
 	mat *biases;
 } net;
 
-double mean_squared(double output, double target);
-
 net net_alloc(int layers, mat topology);
 void net_destroy(net *n);
 void net_copy(net destination, net n);
@@ -55,7 +51,10 @@ void net_rand(net n, double min, double max);
 void net_rand_weights(net n, double min, double max);
 void net_rand_biases(net n, double min, double max);
 void net_zero(net n);
+void net_load(net *n, FILE **f);
+void net_save(net n, char *path);
 void feed_forward(net n, mat inputs, func a);
+double mean_squared(double output, double target);
 double get_cost(mat outputs, mat targets);
 void net_spx(net child1, net child2, net parent1, net parent2);
 void net_mutate(net n, double rate, double mean, double stddev);

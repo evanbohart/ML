@@ -198,20 +198,20 @@ void net_mutate(net n, double rate, double mean, double stddev)
 
 void net_load(net *n, FILE **f)
 {
-  for (int i = 0; i < n->layers - 1; ++i) {
-    mat_load(&n->lins[i], f);
-    mat_load(&n->acts[i], f);
-    mat_load(&n->weights[i], f);
-    mat_load(&n->biases[i], f);
-  }
+    for (int i = 0; i < n->layers - 1; ++i) {
+        mat_load(&n->lins[i], f);
+        mat_load(&n->acts[i], f);
+        mat_load(&n->weights[i], f);
+        mat_load(&n->biases[i], f);
+    }
 }
 
-void net_save(net n, char *path)
+void net_save(net n, FILE *f)
 {
-  for (int i = 0; i < n.layers - 1; ++i) {
-    mat_save(n.lins[i], path);
-    mat_save(n.acts[i], path);
-    mat_save(n.weights[i], path);
-    mat_save(n.biases[i], path);
-  }
+    for (int i = 0; i < n.layers - 1; ++i) {
+        mat_save(n.lins[i], f);
+        mat_save(n.acts[i], f);
+        mat_save(n.weights[i], f);
+        mat_save(n.biases[i], f);
+    }
 }

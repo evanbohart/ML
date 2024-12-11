@@ -31,7 +31,7 @@ int train(int epochs, char *file_name)
     int gens = 0;
     int gen_count = 0;
     int gen_size = 500;
-    int best_size = 100;
+    int best_size = 20;
 
     specimen *gen = gen_alloc(gen_size, layers, topology);
     for (int i = 0; i < gen_size; ++i) {
@@ -48,14 +48,17 @@ int train(int epochs, char *file_name)
     double mean = 0;
     double stddev = 1;
 
-    specimen showcase = gen[0];
+    specimen showcase;
+    showcase.fitness = gen[0].fitness;
+    showcase.n = net_alloc(layers, topology);
+    net_copy(showcase.n, gen[0].n);
 	
     while (gens < epochs) {
         while (!check_collisions(head) && dead_tracker < dead) {
             ++frames;
             ++dead_tracker;
             get_inputs(inputs, head, tail, a);
-            change_direction(inputs, gen[gen_count].n, head);	
+            change_direction(inputs, gen[gen_count].n, head);
             move_snake(head);
 
             if (check_eat(head, a)) {
@@ -114,6 +117,7 @@ int train(int epochs, char *file_name)
 
                 for (int j = 0; j < best_size; ++j) {
                     net_copy(new[i * best_size + j].n, offspring[j].n);
+                    new[i * best_size + j].fitness = 0;
                 }
 
                 shuffle(best, sizeof(specimen), best_size);
@@ -121,19 +125,19 @@ int train(int epochs, char *file_name)
 
             gen_mutate(new, gen_size, mutation_rate, mean, stddev);
 
-            qsort(best, best_size, sizeof(specimen), compare_fitness);
-            if (best[0].fitness > showcase.fitness) {
-                showcase = best[0];
-
-                gen_copy(&gen, new, gen_size);
+            if (best_fitness > showcase.fitness) {
+                qsort(best, best_size, sizeof(specimen), compare_fitness);
+                net_copy(showcase.n, best[0].n);
+                showcase.fitness = best[0].fitness;
             }
+            
+            gen_copy(&gen, new, gen_size);
         }
     }
 
     char path[FILENAME_MAX];
     get_path(path, file_name);
-    clear_bin(path);
-    FILE *f = fopen(path, "ab");
+    FILE *f = fopen(path, "wb");
     net_save(showcase.n, f);
 
     free(inputs.vals);
@@ -174,7 +178,7 @@ int showcase(char *file_name)
     get_path(path, file_name);
 
     FILE *f = fopen(path, "rb");
-    net_load(&n, &f);
+    net_load(&n, f);
     fclose(f);
 
     free(topology.vals);
@@ -228,7 +232,7 @@ int showcase(char *file_name)
                 new_apple(head, &a, score);
             }
             else {
-                dead = 0;
+                quit = true;
             }
         }
 

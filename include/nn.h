@@ -32,7 +32,7 @@ void mat_trans(mat destination, mat m);
 void mat_scale(mat destination, mat m, double a);
 void mat_func(mat destination, mat m, func f);
 void mat_print(mat m);
-void mat_load(mat *m, FILE **f);
+void mat_load(mat *m, FILE *f);
 void mat_save(mat m, FILE *f);
 
 typedef struct net {
@@ -51,9 +51,11 @@ void net_rand(net n, double min, double max);
 void net_rand_weights(net n, double min, double max);
 void net_rand_biases(net n, double min, double max);
 void net_zero(net n);
-void net_load(net *n, FILE **f);
+void net_print(net n);
+void net_load(net *n, FILE *f);
 void net_save(net n, FILE *f);
 void feed_forward(net n, mat inputs, func a);
+void backprop(net n, mat inputs, mat targets, func a, func da, double rate);
 double mean_squared(double output, double target);
 double get_cost(mat outputs, mat targets);
 void net_spx(net child1, net child2, net parent1, net parent2);

@@ -13,7 +13,7 @@ void get_inputs(mat inputs, snake_part *head, snake_part *tail, apple a)
     double obstacle_right_up = fmin(MAX_X - 1 - head->x, head->y) * sqrt(2);
 
     snake_part *current = head->next;
-    while (current) { 
+    while (current) {
         if (current->y == head->y) {
             if (current->x < head->x) {
                 obstacle_left = fmin(obstacle_left, head->x - current->x);
@@ -100,10 +100,10 @@ void get_inputs(mat inputs, snake_part *head, snake_part *tail, apple a)
 
     if (a.x - head->x == a.y - head->y) {
         if (a.y < head->y) {
-            apple_left_down = obstacle_left_down > ((head->x - a.x) * sqrt(2));		
+            apple_left_down = obstacle_left_down > ((head->x - a.x) * sqrt(2));
 		}
         else {
-            apple_right_up = obstacle_right_up > ((a.y - head->y) * sqrt(2));	
+            apple_right_up = obstacle_right_up > ((a.y - head->y) * sqrt(2));
         }
     }
 
@@ -136,7 +136,7 @@ void get_inputs(mat inputs, snake_part *head, snake_part *tail, apple a)
     mat_at(inputs, 31, 0) = tail->dir == UP;
 }
 
-void change_direction(mat inputs, net n, snake_part *head) 
+void change_direction(mat inputs, net n, snake_part *head)
 {
     feed_forward(n, inputs, relu);
 
@@ -154,9 +154,5 @@ void change_direction(mat inputs, net n, snake_part *head)
 
 double fitness(double score, double frames) 
 {
-    if (score == 0 && frames == 100) {
-        return 0;
-    }
-
-    return sqrt(frames + 500 * pow(score, 2) - (score > 0 ? frames / score : 0));
+    return sqrt(frames + 100 * pow(score, 2) - (score > 0 ? frames / score : 0));
 }

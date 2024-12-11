@@ -13,12 +13,12 @@ double drelu(double x) { return x > 0; }
 
 net net_alloc(int layers, mat topology)
 {
-	net n;
-	n.layers = layers;
-
 	assert(topology.rows == layers);
 	assert(topology.cols == 1);
 	
+    net n;
+	n.layers = layers;
+
 	n.topology = mat_alloc(layers, 1);
 	mat_copy(n.topology, topology);
 	
@@ -33,7 +33,7 @@ net net_alloc(int layers, mat topology)
 
 	for (int i = 0; i < layers - 1; ++i) {
 		n.acts[i] = mat_alloc(mat_at(topology, i + 1, 0), 1);
-	}	
+	}
 
 	n.weights = malloc((layers - 1) * sizeof(mat));
 	assert(n.weights != NULL);
@@ -101,7 +101,8 @@ void net_rand_biases(net n, double min, double max)
 	}
 }
 
-void net_zero(net n) {
+void net_zero(net n)
+{
 	for (int i = 0; i < n.layers - 1; ++i) {
 		mat_zero(n.weights[i]);
 	}
@@ -109,6 +110,14 @@ void net_zero(net n) {
 	for (int i = 0; i < n.layers - 1; ++i) {
 		mat_zero(n.biases[i]);
 	}
+}
+
+void net_print(net n)
+{
+    for (int i = 0; i < n.layers - 1; ++i) {
+        mat_print(n.weights[i]);
+        mat_print(n.biases[i]);
+    }
 }
 
 void feed_forward(net n, mat inputs, func a)
@@ -127,23 +136,69 @@ void feed_forward(net n, mat inputs, func a)
 	}
 }
 
-double mean_squared(double output, double target) { return pow(output - target, 2); }
-
-double get_cost(mat outputs, mat targets)
+void backprop(net n, mat inputs, mat targets, func a, func da, double rate)
 {
-	assert(outputs.rows == targets.rows);
-	assert(outputs.cols == targets.cols);
+    assert(inputs.rows == mat_at(n.topology, 0, 0));
+    assert(inputs.cols == 1);
+    assert(targets.rows == mat_at(n.topology, n.layers - 1, 0));
+    assert(targets.cols == 1);
 
-	double cost = 0.0;
+    feed_forward(n, inputs, a);
 
-	for (int i = 0; i < outputs.rows; ++i) {
-		for (int j = 0; j < outputs.cols; ++j) {
-			cost += mean_squared(mat_at(outputs, i, j), mat_at(targets, i, j));
-		}
-	}
+    mat *deltas = malloc((n.layers - 1) * sizeof(mat));
+    deltas[n.layers - 2] = mat_alloc(targets.rows, 1);
+    mat_sub(deltas[n.layers - 2], targets, n.acts[n.layers - 2]);
 
-	return cost / (outputs.rows * outputs.cols);
+    for (int i = n.layers - 2; i >= 0; --i) {
+        mat weights_trans = mat_alloc(n.weights[i].cols, n.weights[i].rows);
+        mat_trans(weights_trans, n.weights[i]);
+
+        mat lins_deriv = mat_alloc(n.lins[i].rows, n.lins[i].cols);
+        mat_func(lins_deriv, n.lins[i], da);
+
+        mat had = mat_alloc(lins_deriv.rows, lins_deriv.cols);
+        mat_had(had, deltas[i], lins_deriv);
+        
+        if (i > 0) {
+            deltas[i - 1] = mat_alloc(weights_trans.rows, had.cols);
+            mat_dot(deltas[i - 1], weights_trans, had);
+        }
+
+        free(weights_trans.vals);
+        free(lins_deriv.vals);
+        free(had.vals);
+    }
+   
+    mat acts_trans = mat_alloc(inputs.cols, inputs.rows);
+    mat_trans(acts_trans, inputs);
+
+    for (int i = 0; i < n.layers - 1; ++i) {
+        mat dweight = mat_alloc(n.weights[i].rows, n.weights[i].cols);
+        mat_dot(dweight, deltas[i], acts_trans);
+
+        mat dbias = mat_alloc(n.biases[i].rows, n.biases[i].cols);
+        mat_copy(dbias, deltas[i]);
+
+        mat_scale(dweight, dweight, rate);
+        mat_scale(dbias, dbias, rate);
+
+        mat_sub(n.weights[i], n.weights[i], dweight);
+        mat_sub(n.biases[i], n.biases[i], dbias);
+
+        free(acts_trans.vals);
+        acts_trans = mat_alloc(n.acts[i].cols, n.acts[i].rows);
+        mat_trans(acts_trans, n.acts[i]);
+
+        free(dweight.vals);
+        free(dbias.vals);
+        free(deltas[i].vals);
+    }
+
+    free(acts_trans.vals);
+    free(deltas);
 }
+
+double mean_squared(double output, double target) { return pow(output - target, 2); }
 
 void net_spx(net child1, net child2, net parent1, net parent2)
 {
@@ -196,7 +251,7 @@ void net_mutate(net n, double rate, double mean, double stddev)
 	}
 }
 
-void net_load(net *n, FILE **f)
+void net_load(net *n, FILE *f)
 {
     for (int i = 0; i < n->layers - 1; ++i) {
         mat_load(&n->lins[i], f);

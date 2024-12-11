@@ -166,13 +166,13 @@ void mat_print(mat m)
 	}
 }
 
-void mat_load(mat *m, FILE **f)
+void mat_load(mat *m, FILE *f)
 {
     assert(f != NULL);
 
-    fread(&m->rows, sizeof(int), 1, *f);
-    fread(&m->cols, sizeof(int), 1, *f);
-    fread(m->vals, sizeof(double) * m->rows * m->cols, 1, *f);
+    fread(&m->rows, sizeof(int), 1, f);
+    fread(&m->cols, sizeof(int), 1, f);
+    fread(m->vals, sizeof(double), m->rows * m->cols, f);
 }
 
 void mat_save(mat m, FILE *f)
@@ -181,6 +181,5 @@ void mat_save(mat m, FILE *f)
 
     fwrite(&m.rows, sizeof(int), 1, f);
     fwrite(&m.cols, sizeof(int), 1, f);
-    fwrite(m.vals, sizeof(double) * m.rows * m.cols, 1, f);
-    fclose(f);
+    fwrite(m.vals, sizeof(double), m.rows * m.cols, f);
 }

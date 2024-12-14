@@ -136,18 +136,25 @@ void feed_forward(net n, mat inputs, func a)
 	}
 }
 
-void backprop(net n, mat inputs, mat targets, func a, func da, double rate)
+void backprop(net n, mat inputs, mat targets, loss l, func da, double rate)
 {
     assert(inputs.rows == mat_at(n.topology, 0, 0));
     assert(inputs.cols == 1);
     assert(targets.rows == mat_at(n.topology, n.layers - 1, 0));
     assert(targets.cols == 1);
 
-    feed_forward(n, inputs, a);
-
     mat *deltas = malloc((n.layers - 1) * sizeof(mat));
     deltas[n.layers - 2] = mat_alloc(targets.rows, 1);
-    mat_sub(deltas[n.layers - 2], targets, n.acts[n.layers - 2]);
+
+    switch (l) {
+        case MSE:
+            mat_sub(deltas[n.layers - 2], n.acts[n.layers - 2], targets);
+            mat_scale(deltas[n.layers - 2], deltas[n.layers - 2], 2);
+            break;
+        case XE:
+            mat_sub(deltas[n.layers - 2], n.acts[n.layers - 2], targets);
+            break;
+    }
 
     for (int i = n.layers - 2; i >= 0; --i) {
         mat weights_trans = mat_alloc(n.weights[i].cols, n.weights[i].rows);
@@ -158,7 +165,7 @@ void backprop(net n, mat inputs, mat targets, func a, func da, double rate)
 
         mat had = mat_alloc(lins_deriv.rows, lins_deriv.cols);
         mat_had(had, deltas[i], lins_deriv);
-        
+
         if (i > 0) {
             deltas[i - 1] = mat_alloc(weights_trans.rows, had.cols);
             mat_dot(deltas[i - 1], weights_trans, had);
@@ -168,7 +175,7 @@ void backprop(net n, mat inputs, mat targets, func a, func da, double rate)
         free(lins_deriv.vals);
         free(had.vals);
     }
-   
+
     mat acts_trans = mat_alloc(inputs.cols, inputs.rows);
     mat_trans(acts_trans, inputs);
 

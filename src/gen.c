@@ -1,4 +1,4 @@
-#include "nn.h"
+#include "snake.h"
 #include "utils.h"
 #include <assert.h>
 #include <stdbool.h>

@@ -1,5 +1,6 @@
 #include "cube.h"
 #include <cassert>
+#include <cstdlib>
 #include <utility>
 using std::pair;
 
@@ -214,6 +215,49 @@ namespace model
 
                 break;
         }
+    }
+
+    bool cube::is_solved(void) const
+    {
+        uint64_t solved_faces[5] = {0x0000000000000000, 0x0101010101010101,
+                                    0x0202020202020202, 0x0303030303030303,
+                                    0x0404040404040404};
+
+        for (int i = 0; i < 5; ++i) {
+            if (faces[i].bitboard != solved_faces[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    void cube::get_inputs(mat inputs) const
+    {
+        assert(inputs.rows == 48);
+        assert(inputs.cols == 1);
+
+        for (int i = 0; i < 6; ++i) {
+            for (int j = 0; j < 8; ++j) {
+                mat_at(inputs, i * 8 + j, 0) = (faces[i].bitboard & (0xFF00000000000000 >> (j * 8))) >> (56 - (j * 8));
+            }
+        }
+    }
+
+    void cube::copy(const cube &c)
+    {
+        for (int i = 0; i < 6; ++i) {
+            faces[i].bitboard = c.faces[i].bitboard;
+        }
+    }
+
+    void cube::scramble(int n)
+    {
+        for (int i = 0; i < n; ++i) {
+            turn((move)(rand() % 12));
+        }
+
+        if (is_solved()) scramble(n);
     }
 
     void cube::set_color(SDL_Renderer *renderer, color c)

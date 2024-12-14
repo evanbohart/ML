@@ -53,4 +53,17 @@ void get_inputs(mat inputs, snake_part *head, snake_part *tail, apple a);
 void change_direction(mat inputs, net n, snake_part *head);
 double fitness(double score, double frames);
 
+typedef struct specimen {
+	double fitness;
+	net n;
+} specimen;
+
+specimen *gen_alloc(int size, int layers, mat topology);
+void gen_destroy(specimen **gen, int size);
+void gen_copy(specimen **destination, specimen *gen, int size);
+int compare_fitness(const void *p, const void *d);
+void find_best(specimen *desintation, specimen *gen, int new_size, int current_size);
+void gen_spx(specimen *destination, specimen *gen, int size);
+void gen_mutate(specimen *gen, int size, double rate, double mean, double std_dev);
+
 #endif

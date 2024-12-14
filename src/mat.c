@@ -1,7 +1,9 @@
 #include "nn.h"
 #include "utils.h"
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
+#include <math.h>
+#include <float.h>
 
 mat mat_alloc(int rows, int cols)
 {
@@ -154,9 +156,33 @@ void mat_func(mat destination, mat m, func f)
 	}
 }
 
+void mat_softmax(mat destination, mat m)
+{
+    assert(destination.rows == m.rows);
+    assert(destination.cols == m.cols);
+
+    double max = -DBL_MAX;
+    for (int i = 0; i < m.rows; ++i) {
+        for (int j = 0; j < m.cols; ++j) {
+            if (mat_at(m, i, j) > max) max = mat_at(m, i, j);
+        }
+    }
+
+    double sum = 0;
+    for (int i = 0; i < destination.rows; ++i) {
+        for (int j = 0; j < destination.cols; ++j) {
+            double val = exp(mat_at(m, i, j) - max);
+            mat_at(destination, i, j) = val;
+            sum += val;
+        }
+    }
+
+    mat_scale(destination, destination, 1 / sum);
+}
+
 void mat_print(mat m)
 {
-  assert(m.vals != NULL);
+    assert(m.vals != NULL);
 
 	for (int i = 0; i < m.rows; ++i) {
 		for (int j = 0; j < m.cols; ++j) {

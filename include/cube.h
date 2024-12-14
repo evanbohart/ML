@@ -1,19 +1,25 @@
 #ifndef CUBE_H
 #define CUBE_H
 
+extern "C" {
+    #include "nn.h"
+}
+
 #include <cstdint>
+#include <vector>
+using std::vector;
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
-const int WINDOW_X = 400;
-const int WINDOW_Y = 100;
-const int WINDOW_W = 600;
-const int WINDOW_H = 600;
+#define WINDOW_X 400
+#define WINDOW_Y 100
+#define WINDOW_W 600
+#define WINDOW_H 600
 
-const uint64_t MASK_OUT_T = 0x000000FFFFFFFFFF;
-const uint64_t MASK_OUT_B = 0xFFFFFFFF000000FF;
-const uint64_t MASK_OUT_L = 0x00FFFFFFFFFF0000;
-const uint64_t MASK_OUT_R = 0xFFFF000000FFFFFF;
+#define MASK_OUT_T 0x000000FFFFFFFFFF
+#define MASK_OUT_B 0xFFFFFFFF000000FF
+#define MASK_OUT_L 0x00FFFFFFFFFF0000
+#define MASK_OUT_R 0xFFFF000000FFFFFF
 
 namespace model
 {
@@ -55,6 +61,45 @@ namespace model
             cube();
             void render(SDL_Renderer *renderer, int x, int y);
             void turn(const move &m);
+            void get_inputs(mat inputs) const;
+            void copy(const cube &c);
+            bool is_solved(void) const;
+            void scramble(int n);
+    };
+}
+
+namespace ai
+{
+
+    struct state {
+        model::cube c;
+        double prior;
+        int visits;
+        double value_sum;
+        state *parent;
+        state **children;
+    };
+
+    class tree
+    {
+        private:
+            state *root;
+            void destroy(state *root);
+            void select_child(state *&root);
+            void traverse(state *&root);
+            double rollout(net policy, state *leaf);
+            void backup(state *leaf, double value);
+            double get_value(const state *root) const;
+            void expand_state(net policy, state *root);
+            double uct(const state *root) const;
+            double eval(net value, const state *root);
+        public:
+            tree(const model::cube &c);
+            ~tree();
+            void mcts(net policy, int n);
+            void train_value(net value, double rate);
+            void train_policy(net policy, double rate);
+
     };
 }
 

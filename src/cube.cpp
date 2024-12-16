@@ -41,8 +41,8 @@ int main(void)
     }
     policy.actfuncs[policy.layers - 2] = SOFTMAX;
 
-    net_rand(value, -.5, .5);
-    net_rand(policy, -.5, .5);
+    net_glorot(value);
+    net_he(policy);
 
     mat inputs = mat_alloc(48, 1);
 
@@ -54,8 +54,7 @@ int main(void)
             t.mcts(policy, 100);
             t.train_value(value, 0.01);
             t.train_policy(policy, 0.01);
-            net_print(policy);
-            //std::cout << "Scramble Length: " << i + 1 << " | Epoch: " << j + 1 << "\n";
+            std::cout << "Scramble Length: " << i + 1 << " | Epoch: " << j + 1 << "\n";
         }
     }
 

@@ -41,6 +41,15 @@ void mat_rand(mat m, double min, double max)
 	}
 }
 
+void mat_normal(mat m, double mean, double stddev)
+{
+    for (int i = 0; i < m.rows; ++i) {
+        for (int j = 0; j < m.cols; ++j) {
+            mat_at(m, i, j) = rand_normal(mean, stddev);
+        }
+    }
+}
+
 void mat_zero(mat m)
 {
 	for (int i = 0; i < m.rows; ++i) {

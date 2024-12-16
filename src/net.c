@@ -85,35 +85,26 @@ void net_copy(net destination, net n)
 	}
 }
 
-void net_rand(net n, double min, double max)
+void net_glorot(net n)
 {
-	net_rand_weights(n, min, max);
-	net_rand_biases(n, min, max);
+    for (int i = 0; i < n.layers - 1; ++i) {
+        mat_normal(n.weights[i], 0, 2 / (mat_at(n.topology, i, 0) + mat_at(n.topology, i + 1, 0)));
+    }
+
+    for (int i = 0; i < n.layers - 1; ++i) {
+        mat_zero(n.biases[i]);
+    }
 }
 
-void net_rand_weights(net n, double min, double max)
+void net_he(net n)
 {
-	for (int i = 0; i < n.layers - 1; ++i) {
-		mat_rand(n.weights[i], min, max);
-	}
-}
+    for (int i = 0; i < n.layers - 1; ++i) {
+        mat_normal(n.weights[i], 0, 2 / mat_at(n.topology, i, 0));
+    }
 
-void net_rand_biases(net n, double min, double max)
-{
-	for (int i = 0; i < n.layers - 1; ++i) {
-		mat_rand(n.biases[i], min, max);
-	}
-}
-
-void net_zero(net n)
-{
-	for (int i = 0; i < n.layers - 1; ++i) {
-		mat_zero(n.weights[i]);
-	}
-
-	for (int i = 0; i < n.layers - 1; ++i) {
-		mat_zero(n.biases[i]);
-	}
+    for (int i = 0; i < n.layers - 1; ++i) {
+        mat_zero(n.biases[i]);
+    }
 }
 
 void net_print(net n)
@@ -172,8 +163,10 @@ void backprop(net n, mat inputs, mat targets, double rate)
     feed_forward(n, inputs);
 
     mat *deltas = malloc((n.layers - 1) * sizeof(mat));
+    assert(deltas != NULL);
+
     deltas[n.layers - 2] = mat_alloc(targets.rows, 1);
-    mat_sub(deltas[n.layers - 2], targets, n.acts[n.layers - 2]);
+    mat_sub(deltas[n.layers - 2], n.acts[n.layers - 2], targets);
 
     for (int i = n.layers - 2; i >= 1; --i) {
         mat weights_trans = mat_alloc(n.weights[i].cols, n.weights[i].rows);

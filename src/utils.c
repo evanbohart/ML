@@ -15,29 +15,10 @@ double rand_double(double min, double max) { return (max - min) * rand() / RAND_
 
 double rand_normal(double mean, double stddev)
 {
-    static double n2 = 0;
-    static bool cached = false;
+    double u1 = rand_double(0, 1);
+    double u2 = rand_double(0, 1);
 
-    if (!cached) {
-        double x;
-        double y;
-        double r;
-        do {
-            x = rand_double(-1, 1);
-            y = rand_double(-1, 1);
-            r = x * x + y * y;
-        }
-        while (r == 0 || r > 1);
-
-        double n1 = x * sqrt(-2.0 * log(r) / r);
-        n2 = y * n1;
-        cached = true;
-        return n1 * stddev + mean;
-    }
-    else {
-        cached = false;
-        return n2 * stddev + mean;
-    }
+    return stddev * sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2) + mean;
 }
 
 void shuffle(void *arr, size_t type_size, int arr_size)

@@ -8,7 +8,7 @@ SNAKE_SRCS = src/snake.c src/mat.c src/net.c src/gen.c src/snake_update.c src/sn
 SNAKE_OBJS = $(SNAKE_SRCS:src/%.c=obj/%.o)
 
 CUBE_C_SRCS = src/mat.c src/net.c src/utils.c
-CUBE_CPP_SRCS = src/test.cpp src/cube_model.cpp src/cube_ai.cpp src/cube_utils.cpp
+CUBE_CPP_SRCS = src/cube.cpp src/cube_model.cpp src/cube_ai.cpp src/cube_utils.cpp
 CUBE_OBJS = $(CUBE_C_SRCS:src/%.c=obj/%.o) $(CUBE_CPP_SRCS:src/%.cpp=obj/%.o)
 
 all: snake cube

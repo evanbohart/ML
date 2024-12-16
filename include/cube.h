@@ -6,8 +6,8 @@ extern "C" {
 }
 
 #include <cstdint>
-#include <vector>
-using std::vector;
+#include <stack>
+using std::stack;
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
@@ -75,7 +75,7 @@ namespace ai
         model::cube c;
         double prior;
         int visits;
-        double value_sum;
+        double value;
         state *parent;
         state **children;
     };
@@ -89,14 +89,15 @@ namespace ai
             void traverse(state *&root);
             double rollout(net policy, state *leaf);
             void backup(state *leaf, double value);
-            double get_value(const state *root) const;
             void expand_state(net policy, state *root);
             double uct(const state *root) const;
             double eval(net value, const state *root);
+            void generate_solution(stack<model::move> &moves, state *leaf);
         public:
             tree(const model::cube &c);
             ~tree();
             void mcts(net policy, int n);
+            bool solve(net value, net policy, stack<model::move> &moves, int n);
             void train_value(net value, double rate);
             void train_policy(net policy, double rate);
 

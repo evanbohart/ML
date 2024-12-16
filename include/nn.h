@@ -12,6 +12,12 @@ typedef struct mat {
 
 #define mat_at(m, row, col) ((m).vals[(row) * (m).cols + (col)])
 
+typedef enum actfunc {
+    SIGMOID,
+    RELU,
+    SOFTMAX
+} actfunc;
+
 typedef double (*func)(double);
 
 double sig(double x);
@@ -43,12 +49,8 @@ typedef struct net {
 	mat *acts;
 	mat *weights;
 	mat *biases;
+    actfunc *actfuncs;
 } net;
-
-typedef enum loss {
-    MSE,
-    XE
-} loss;
 
 net net_alloc(int layers, mat topology);
 void net_destroy(net *n);
@@ -60,8 +62,8 @@ void net_zero(net n);
 void net_print(net n);
 void net_load(net *n, FILE *f);
 void net_save(net n, FILE *f);
-void feed_forward(net n, mat inputs, func a);
-void backprop(net n, mat inputs, mat targets, loss l, func da, double rate);
+void feed_forward(net n, mat inputs);
+void backprop(net n, mat inputs, mat targets, double rate);
 double mean_squared(double output, double target);
 double get_cost(mat outputs, mat targets);
 void net_spx(net child1, net child2, net parent1, net parent2);

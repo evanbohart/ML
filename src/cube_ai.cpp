@@ -10,7 +10,7 @@ namespace ai
         root->c.copy(c);
         root->prior = 0;
         root->visits = 0;
-        root->value_sum = 0;
+        root->value = 0;
         root->parent = nullptr;
         root->children = nullptr;
     }
@@ -36,8 +36,7 @@ namespace ai
     {
         mat inputs = mat_alloc(48, 1);
         root->c.get_inputs(inputs);
-        feed_forward(policy, inputs, relu);
-        mat_softmax(policy.acts[policy.layers - 2], policy.acts[policy.layers - 2]);
+        feed_forward(policy, inputs);
 
         root->children = new state*[12];
         for (int i = 0; i < 12; ++i) {
@@ -46,7 +45,7 @@ namespace ai
             root->children[i]->c.turn((model::move)i);
             root->children[i]->prior = mat_at(policy.acts[policy.layers - 2], i, 0);
             root->children[i]->visits = 0;
-            root->children[i]->value_sum = 0;
+            root->children[i]->value = 0;
             root->children[i]->parent = root;
             root->children[i]->children = nullptr;
         }
@@ -56,16 +55,18 @@ namespace ai
 
     void tree::select_child(state *&root)
     {
-         double max_uct = 0;
-         int index = 0;
-         for (int i = 0; i < 12; ++i) {
-             if (uct(root->children[i]) > max_uct) {
-                 max_uct = uct(root->children[i]);
-                 index = i;
-             }
-         }
+        assert(root->children);
 
-         root = root->children[index];
+        double max_uct = 0;
+        int index = 0;
+        for (int i = 0; i < 12; ++i) {
+            if (uct(root->children[i]) > max_uct) {
+                max_uct = uct(root->children[i]);
+                index = i;
+            }
+        }
+
+        root = root->children[index];
     }
 
     void tree::traverse(state *&root)
@@ -75,23 +76,17 @@ namespace ai
         }
     }
 
-    double tree::get_value(const state *root) const
-    {
-        if (root->visits > 0) return root->value_sum / root->visits;
-
-        return 0;
-    }
-
     double tree::uct(const state *root) const
     {
-        return get_value(root) + root->prior * sqrt(root->parent->visits) / (root->visits + 1);
+        assert(root->parent);
+        return root->value + sqrt(log(root->parent->visits + 1) / (root->visits + 1));// + root->prior;
     }
 
     double tree::eval(net value, const state *root)
     {
         mat inputs = mat_alloc(mat_at(value.topology, 0, 0), 1);
         root->c.get_inputs(inputs);
-        feed_forward(value, inputs, relu);
+        feed_forward(value, inputs);
 
         return mat_at(value.acts[value.layers - 2], 0, 0);
     }
@@ -102,10 +97,10 @@ namespace ai
         c.copy(leaf->c);
 
         mat inputs = mat_alloc(48, 1);
+        int n = 0;
         for (int i = 0; i < 100 && !c.is_solved(); ++i) {
             c.get_inputs(inputs);
-            feed_forward(policy, inputs, relu);
-            mat_softmax(policy.acts[policy.layers - 2], policy.acts[policy.layers - 2]);
+            feed_forward(policy, inputs);
 
             double max = 0;
             int index = 0;
@@ -117,17 +112,20 @@ namespace ai
             }
 
             c.turn((model::move)index);
+            ++n;
         }
 
-        return c.is_solved();
+        return c.is_solved() * pow(.95, n);
     }
 
     void tree::backup(state *leaf, double value)
     {
+        int n = 0;
         while (leaf) {
             ++leaf->visits;
-            leaf->value_sum += value;
+            leaf->value = std::max(leaf->value, value * pow(.95, n));
             leaf = leaf->parent;
+            ++n;
         }
     }
 
@@ -139,32 +137,69 @@ namespace ai
             state *leaf = root;
             traverse(leaf);
 
-            double value;
-            if (!leaf->c.is_solved()) {
-                expand_state(policy, leaf);
-                select_child(leaf);
-                value = rollout(policy, leaf);
+            double val;
+            if (leaf->c.is_solved()) {
+                val = 1;
             }
             else {
-                value = 1;
+                expand_state(policy, leaf);
+                select_child(leaf);
+                val = rollout(policy, leaf);
             }
 
-            backup(leaf, value);
+            backup(leaf, val);
         }
+    }
+
+    void tree::generate_solution(stack<model::move> &moves, state *leaf)
+    {
+        assert(leaf->c.is_solved());
+
+        while (leaf != root) {
+            state *temp = leaf;
+            leaf = leaf->parent;
+            for (int i = 0; i < 12; ++i) {
+                if (leaf->children[i] == temp) {
+                    moves.push((model::move)i);
+                    break;
+                }
+            }
+        }
+    }
+
+    bool tree::solve(net value, net policy, stack<model::move> &moves, int n)
+    {
+        expand_state(policy, root);
+
+        for (int i = 0; i < n; ++i) {
+            state *leaf = root;
+            traverse(leaf);
+
+            if (leaf->c.is_solved()) {
+                generate_solution(moves, leaf);
+                return true;
+            }
+            else {
+                expand_state(policy, leaf);
+                select_child(leaf);
+                backup(leaf, eval(value, leaf));
+            }
+        }
+
+        return false;
     }
 
     void tree::train_value(net value, double rate)
     {
         assert(root->children);
 
-        mat inputs = mat_alloc(mat_at(value.topology, 0, 0), 1);
+        mat inputs = mat_alloc(48, 1);
         root->c.get_inputs(inputs);
 
         mat targets = mat_alloc(1, 1);
-        mat_at(targets, 0, 0) = get_value(root);
+        mat_at(targets, 0, 0) = root->value;
 
-        feed_forward(value, inputs, sig);
-        backprop(value, inputs, targets, MSE, dsig, rate);
+        backprop(value, inputs, targets, rate);
 
         free(inputs.vals);
         free(targets.vals);
@@ -178,14 +213,19 @@ namespace ai
         root->c.get_inputs(inputs);
 
         mat targets = mat_alloc(12, 1);
+        int max = 0;
+        int index = 0;
         for (int i = 0; i < 12; ++i) {
-            mat_at(targets, i, 0) = root->children[i]->visits;
+            if (root->children[i]->visits > max) {
+                max = root->children[i]->visits;
+                index = i;
+            }
         }
-        mat_softmax(targets, targets);
 
-        feed_forward(policy, inputs, relu);
-        mat_softmax(policy.acts[policy.layers - 2], policy.acts[policy.layers - 2]);
-        backprop(policy, inputs, targets, XE, drelu, rate);
+        mat_zero(targets);
+        mat_at(targets, index, 0) = 1;
+
+        backprop(policy, inputs, targets, rate);
 
         free(inputs.vals);
         free(targets.vals);

@@ -49,6 +49,9 @@ net net_alloc(int layers, mat topology)
 		n.biases[i] = mat_alloc(mat_at(topology, i + 1, 0), 1);
 	}
 
+    n.actfuncs = malloc((layers - 1) * sizeof(actfunc));
+    assert(n.actfuncs != NULL);
+
 	return n;
 }
 
@@ -66,6 +69,7 @@ void net_destroy(net *n) {
 	free(n->acts);
 	free(n->weights);
 	free(n->biases);
+    free(n->actfuncs);
 }
 
 void net_copy(net destination, net n)
@@ -120,56 +124,79 @@ void net_print(net n)
     }
 }
 
-void feed_forward(net n, mat inputs, func a)
+void feed_forward(net n, mat inputs)
 {
 	assert(inputs.rows == mat_at(n.topology, 0, 0));
 	assert(inputs.cols == 1);
 
 	mat_dot(n.lins[0], n.weights[0], inputs);
 	mat_add(n.lins[0], n.lins[0], n.biases[0]);
-	mat_func(n.acts[0], n.lins[0], a);
+
+    switch (n.actfuncs[0]) {
+        case SIGMOID:
+            mat_func(n.acts[0], n.lins[0], sig);
+            break;
+        case RELU:
+            mat_func(n.acts[0], n.lins[0], relu);
+            break;
+        case SOFTMAX:
+            mat_softmax(n.acts[0], n.lins[0]);
+            break;
+    }
 
 	for (int i = 1; i < n.layers - 1; ++i) {
 		mat_dot(n.lins[i], n.weights[i], n.acts[i - 1]);
 		mat_add(n.lins[i], n.lins[i], n.biases[i]);
-		mat_func(n.acts[i], n.lins[i], a);
+
+        switch (n.actfuncs[i]) {
+            case SIGMOID:
+                mat_func(n.acts[i], n.lins[i], sig);
+                break;
+            case RELU:
+                mat_func(n.acts[i], n.lins[i], relu);
+                break;
+            case SOFTMAX:
+                mat_softmax(n.acts[i], n.lins[i]);
+                break;
+        }
 	}
 }
 
-void backprop(net n, mat inputs, mat targets, loss l, func da, double rate)
+void backprop(net n, mat inputs, mat targets, double rate)
 {
     assert(inputs.rows == mat_at(n.topology, 0, 0));
     assert(inputs.cols == 1);
     assert(targets.rows == mat_at(n.topology, n.layers - 1, 0));
     assert(targets.cols == 1);
 
+    feed_forward(n, inputs);
+
     mat *deltas = malloc((n.layers - 1) * sizeof(mat));
     deltas[n.layers - 2] = mat_alloc(targets.rows, 1);
+    mat_sub(deltas[n.layers - 2], targets, n.acts[n.layers - 2]);
 
-    switch (l) {
-        case MSE:
-            mat_sub(deltas[n.layers - 2], n.acts[n.layers - 2], targets);
-            mat_scale(deltas[n.layers - 2], deltas[n.layers - 2], 2);
-            break;
-        case XE:
-            mat_sub(deltas[n.layers - 2], n.acts[n.layers - 2], targets);
-            break;
-    }
-
-    for (int i = n.layers - 2; i >= 0; --i) {
+    for (int i = n.layers - 2; i >= 1; --i) {
         mat weights_trans = mat_alloc(n.weights[i].cols, n.weights[i].rows);
         mat_trans(weights_trans, n.weights[i]);
 
         mat lins_deriv = mat_alloc(n.lins[i].rows, n.lins[i].cols);
-        mat_func(lins_deriv, n.lins[i], da);
+
+        switch (n.actfuncs[i - 1]) {
+            case SIGMOID:
+                mat_func(lins_deriv, n.lins[i], dsig);
+                break;
+            case RELU:
+                mat_func(lins_deriv, n.lins[i], drelu);
+                break;
+            case SOFTMAX:
+                break;
+        }
 
         mat had = mat_alloc(lins_deriv.rows, lins_deriv.cols);
         mat_had(had, deltas[i], lins_deriv);
 
-        if (i > 0) {
-            deltas[i - 1] = mat_alloc(weights_trans.rows, had.cols);
-            mat_dot(deltas[i - 1], weights_trans, had);
-        }
+        deltas[i - 1] = mat_alloc(weights_trans.rows, had.cols);
+        mat_dot(deltas[i - 1], weights_trans, had);
 
         free(weights_trans.vals);
         free(lins_deriv.vals);

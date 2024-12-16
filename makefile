@@ -7,11 +7,11 @@ LDFLAGS = -L./../SDL/lib/x64 -lSDL2
 SNAKE_SRCS = src/snake.c src/mat.c src/net.c src/gen.c src/snake_update.c src/snake_render.c src/snake_net.c src/utils.c
 SNAKE_OBJS = $(SNAKE_SRCS:src/%.c=obj/%.o)
 
-TEST_C_SRCS = src/mat.c src/net.c src/utils.c
-TEST_CPP_SRCS = src/test.cpp src/cube_model.cpp src/cube_ai.cpp src/cube_utils.cpp
-TEST_OBJS = $(TEST_C_SRCS:src/%.c=obj/%.o) $(TEST_CPP_SRCS:src/%.cpp=obj/%.o)
+CUBE_C_SRCS = src/mat.c src/net.c src/utils.c
+CUBE_CPP_SRCS = src/test.cpp src/cube_model.cpp src/cube_ai.cpp src/cube_utils.cpp
+CUBE_OBJS = $(CUBE_C_SRCS:src/%.c=obj/%.o) $(CUBE_CPP_SRCS:src/%.cpp=obj/%.o)
 
-all: snake test
+all: snake cube
 
 obj:
 	mkdir -p obj
@@ -25,8 +25,8 @@ obj/%.o: src/%.cpp | obj
 snake: $(SNAKE_OBJS)
 	$(CC) $(SNAKE_OBJS) -o snake $(LDFLAGS)
 
-test: $(TEST_OBJS)
-	$(CXX) $(TEST_OBJS) -o test $(LDFLAGS)
+cube: $(CUBE_OBJS)
+	$(CXX) $(CUBE_OBJS) -o cube $(LDFLAGS)
 
 clean:
-	rm -rf obj snake test
+	rm -rf obj snake cube

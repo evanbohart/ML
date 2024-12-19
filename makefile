@@ -11,7 +11,7 @@ CUBE_C_SRCS = src/mat.c src/net.c src/utils.c
 CUBE_CPP_SRCS = src/cube.cpp src/cube_model.cpp src/cube_ai.cpp src/cube_utils.cpp
 CUBE_OBJS = $(CUBE_C_SRCS:src/%.c=obj/%.o) $(CUBE_CPP_SRCS:src/%.cpp=obj/%.o)
 
-all: snake cube
+all: cube
 
 obj:
 	mkdir -p obj

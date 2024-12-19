@@ -23,34 +23,35 @@ net net_alloc(int layers, mat topology)
 	mat_copy(n.topology, topology);
 	
 	n.lins = malloc((layers - 1) * sizeof(mat));
-	assert(n.lins != NULL);
+	assert(n.lins);
 
 	for (int i = 0; i < layers - 1; ++i) {
 		n.lins[i] = mat_alloc(mat_at(topology, i + 1, 0), 1);
 	}
+
 	n.acts = malloc((layers - 1) * sizeof(mat));
-	assert(n.acts != NULL);
+	assert(n.acts);
 
 	for (int i = 0; i < layers - 1; ++i) {
 		n.acts[i] = mat_alloc(mat_at(topology, i + 1, 0), 1);
 	}
 
 	n.weights = malloc((layers - 1) * sizeof(mat));
-	assert(n.weights != NULL);
+	assert(n.weights);
 
 	for (int i = 0; i < layers - 1; ++i) {
 		n.weights[i] = mat_alloc(mat_at(topology, i + 1, 0), mat_at(topology, i, 0));
 	}
 
 	n.biases = malloc((layers - 1) * sizeof(mat));
-	assert(n.biases != NULL);
+	assert(n.biases);
 
 	for (int i = 0; i < layers - 1; ++i) {
 		n.biases[i] = mat_alloc(mat_at(topology, i + 1, 0), 1);
 	}
 
     n.actfuncs = malloc((layers - 1) * sizeof(actfunc));
-    assert(n.actfuncs != NULL);
+    assert(n.actfuncs);
 
 	return n;
 }
@@ -78,7 +79,7 @@ void net_copy(net destination, net n)
 	assert(mat_compare(destination.topology, n.topology));
 
 	for (int i = 0; i < destination.layers - 1; ++i) {
-		mat_copy(destination.lins[i], n.lins[i]);
+	mat_copy(destination.lins[i], n.lins[i]);
 		mat_copy(destination.acts[i], n.acts[i]);
 		mat_copy(destination.weights[i], n.weights[i]);
 		mat_copy(destination.biases[i], n.biases[i]);
@@ -92,7 +93,7 @@ void net_glorot(net n)
     }
 
     for (int i = 0; i < n.layers - 1; ++i) {
-        mat_zero(n.biases[i]);
+        mat_fill(n.biases[i], 0);
     }
 }
 
@@ -103,7 +104,7 @@ void net_he(net n)
     }
 
     for (int i = 0; i < n.layers - 1; ++i) {
-        mat_zero(n.biases[i]);
+        mat_fill(n.biases[i], 0);
     }
 }
 

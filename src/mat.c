@@ -11,7 +11,7 @@ mat mat_alloc(int rows, int cols)
 	m.rows = rows;
 	m.cols = cols;
 	m.vals = malloc(rows * cols * sizeof(double));
-	assert(m.vals != NULL);
+	assert(m.vals);
 
 	return m;
 }
@@ -50,11 +50,11 @@ void mat_normal(mat m, double mean, double stddev)
     }
 }
 
-void mat_zero(mat m)
+void mat_fill(mat m, double val)
 {
 	for (int i = 0; i < m.rows; ++i) {
 		for (int j = 0; j < m.cols; ++j) {
-			mat_at(m, i, j) = 0;
+			mat_at(m, i, j) = val;
 		}
 	}
 }

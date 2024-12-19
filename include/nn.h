@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct mat {
 	int rows;
 	int cols;
@@ -29,7 +33,7 @@ mat mat_alloc(int rows, int cols);
 int mat_compare(mat m1, mat m2);
 void mat_rand(mat m, double min, double max);
 void mat_normal(mat m, double mean, double stddev);
-void mat_zero(mat m);
+void mat_fill(mat m, double val);
 void mat_copy(mat destination, mat m);
 void mat_add(mat destination, mat m1, mat m2);
 void mat_sub(mat destination, mat m1, mat m2);
@@ -67,5 +71,9 @@ double mean_squared(double output, double target);
 double get_cost(mat outputs, mat targets);
 void net_spx(net child1, net child2, net parent1, net parent2);
 void net_mutate(net n, double rate, double mean, double stddev);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

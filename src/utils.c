@@ -18,6 +18,8 @@ double rand_normal(double mean, double stddev)
     double u1 = rand_double(0, 1);
     double u2 = rand_double(0, 1);
 
+    while (u1 == 0) u1 = rand_double(0, 1);
+
     return stddev * sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2) + mean;
 }
 
@@ -35,7 +37,8 @@ void shuffle(void *arr, size_t type_size, int arr_size)
     }
 }
 
-void get_path(char *path, char *file_name) {
+void get_path(char *path, char *file_name)
+{
     char directory[FILENAME_MAX];
     get_directory(directory, FILENAME_MAX);
     strcpy(path, directory);

@@ -59,7 +59,7 @@ class cube
         cube();
         void render(SDL_Renderer *renderer, int x, int y);
         void turn(const move &m);
-        void get_inputs(mat inputs) const;
+        void get_inputs(tens inputs) const;
         void copy(const cube &c);
         bool is_solved(void) const;
         void scramble(int n);
@@ -82,20 +82,20 @@ class tree
         void select_child(state *&root);
         void traverse(state *&root);
         void backup(state *leaf, double value);
-        void expand_state(net policy, state *root);
+        void expand_state(cnet cn, net policy, state *root);
         double uct(const state *root) const;
-        double eval(net value, const state *root);
+        double eval(cnet cn, net value, const state *root);
         void generate_solution(stack<move> &moves, state *leaf);
-        void train_value(net value, state *root, mat inputs, mat targets, double rate);
-        void train_policy(net policy, state *root, mat inputs, mat targets, double rate);
+        void train_value(cnet cn, net value, state *root, mat inputs, mat targets, double rate);
+        void train_policy(cnet cn, net policy, state *root, mat inputs, mat targets, double rate);
  
     public:
         tree(const cube &c);
         ~tree();
-        bool mcts(net policy, int n);
-        bool solve(net value, net policy, stack<move> &moves, int n);
-        void train_value(net value, double rate);
-        void train_policy(net policy, double rate);
+        bool mcts(cnet cn, net policy, int n);
+        bool solve(cnet cn, net value, net policy, stack<move> &moves, int n);
+        void train_value(cnet cn, net value, double rate);
+        void train_policy(cnet cn, net policy, double rate);
 
 };
 

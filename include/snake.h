@@ -53,6 +53,9 @@ void get_inputs(mat inputs, snake_part *head, snake_part *tail, apple a);
 void change_direction(mat inputs, net n, snake_part *head);
 double fitness(double score, double frames);
 
+void net_spx(net child1, net child2, net parent1, net parent2);
+void net_mutate(net n, double rate, double mean, double stddev);
+
 typedef struct specimen {
 	double fitness;
 	net n;

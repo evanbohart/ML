@@ -16,22 +16,21 @@ void render_background(SDL_Renderer *renderer)
     SDL_RenderFillRect(renderer, &rect);
 }
 
-void train(net value, net policy, char *path)
+void train(cnet cn, net value, net policy, char *path)
 {
+    cnet_he(cn);
     net_glorot(value);
     net_he(policy);
 
-    for (int i = 0; i < 30; ++i) {
+    for (int i = 0; i < 25; ++i) {
         for (int j = 0; j < 10 * 1000; ++j) {
-            for (int k = i; k >= 0; --k) {
-                cube c;
-                c.scramble(k + 1);
-                tree t(c);
-                bool solved = t.mcts(policy, 1000 * (k + 1));
-                t.train_value(value, 0.01);
-                t.train_policy(policy, 0.01);
-                printf("Scramble Length: %i | Epoch: %i | %s", k + 1, j + 1, (solved ? "Solved\n" : "Not solved\n"));
-            }
+            cube c;
+            c.scramble(i + 1);
+            tree t(c);
+            bool solved = t.mcts(cn, policy, 1000 * (i + 1));
+            t.train_value(cn, value, 1e-3);
+            t.train_policy(cn, policy, 1e-3);
+            printf("Scramble Length: %i | Epoch: %i | %s", i + 1, j + 1, (solved > 0 ? "Solved\n" : "Not solved\n"));
         }
     }
 
@@ -41,11 +40,12 @@ void train(net value, net policy, char *path)
         return;
     }
 
+    cnet_save(cn, f);
     net_save(value, f);
     net_save(policy, f);
 }
 
-void showcase(net value, net policy, char *path)
+void showcase(cnet cn, net value, net policy, char *path)
 {
     FILE *f = fopen(path, "rb");
     if (!f) {
@@ -53,6 +53,7 @@ void showcase(net value, net policy, char *path)
         return;
     }
 
+    cnet_load(&cn, f);
     net_load(&value, f);
     net_load(&policy, f);
 
@@ -69,7 +70,7 @@ void showcase(net value, net policy, char *path)
         c.scramble(n);
         tree t(c);
 
-        if (!t.solve(value, policy, solution, 25 * 1000)) {
+        if (!t.solve(cn, value, policy, solution, 25 * 1000)) {
             printf("No solution found.\n");
         }
         else {
@@ -213,13 +214,26 @@ void showcase(net value, net policy, char *path)
 int main(int argc, char **argv)
 {
     srand(time(0));
+    int cn_layers = 6;
+    int cn_filter_size = 2;
     int value_layers = 4;
     int policy_layers = 4;
 
+    mat cn_convolutions = mat_alloc(cn_layers - 1, 1);
+    mat_fill(cn_convolutions, 64);
+    mat cn_input_dims = mat_alloc(3, 1);
+    mat_at(cn_input_dims, 0, 0) = 8;
+    mat_at(cn_input_dims, 1, 0) = 6;
+    mat_at(cn_input_dims, 2, 0) = 1;
+    cnet cn = cnet_alloc(cn_layers, cn_convolutions, cn_input_dims, cn_filter_size);
+    for (int i = 0; i < cn_layers - 1; ++i) {
+        cn.actfuncs[i] = RELU;
+    }
+
     mat value_topology = mat_alloc(value_layers, 1);
-    mat_at(value_topology, 0, 0) = 48;
-    mat_at(value_topology, 1, 0) = 256;
-    mat_at(value_topology, 2, 0) = 256;
+    mat_at(value_topology, 0, 0) = 64;
+    mat_at(value_topology, 1, 0) = 128;
+    mat_at(value_topology, 2, 0) = 64;
     mat_at(value_topology, 3, 0) = 1;
     net value = net_alloc(value_layers, value_topology);
     for (int i = 0; i < value.layers - 1; ++i) {
@@ -227,9 +241,9 @@ int main(int argc, char **argv)
     }
 
     mat policy_topology = mat_alloc(policy_layers, 1);
-    mat_at(policy_topology, 0, 0) = 48;
-    mat_at(policy_topology, 1, 0) = 256;
-    mat_at(policy_topology, 2, 0) = 256;
+    mat_at(policy_topology, 0, 0) = 64;
+    mat_at(policy_topology, 1, 0) = 128;
+    mat_at(policy_topology, 2, 0) = 64;
     mat_at(policy_topology, 3, 0) = 12;
     net policy = net_alloc(policy_layers, policy_topology);
     for (int i = 0; i < policy.layers - 2; ++i) {
@@ -244,18 +258,21 @@ int main(int argc, char **argv)
     }
     else if (strcmp(argv[1], "train") == 0) {
         get_path(path, argv[2]);
-        train(value, policy, path);
+        train(cn, value, policy, path);
     }
     else if (strcmp(argv[1], "showcase") == 0) {
         get_path(path, argv[2]);
-        showcase(value, policy, path);
+        showcase(cn, value, policy, path);
     }
     else {
         printf("Usage: %s <mode> <arguments>\n", argv[0]);
     }
 
+    free(cn_convolutions.vals);
+    free(cn_input_dims.vals);
     free(value_topology.vals);
     free(policy_topology.vals);
+    cnet_destroy(&cn);
     net_destroy(&value);
     net_destroy(&policy);
 }

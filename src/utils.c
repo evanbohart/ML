@@ -45,9 +45,3 @@ void get_path(char *path, char *file_name)
     strcat(path, "\\docs\\");
     strcat(path, file_name);
 }
-
-void clear_bin(char *path)
-{
-    FILE *f = fopen(path, "wb");
-    fclose(f);
-}

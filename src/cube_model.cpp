@@ -229,14 +229,15 @@ bool cube::is_solved(void) const
     return true;
 }
 
-void cube::get_inputs(mat inputs) const
+void cube::get_inputs(tens inputs) const
 {
-    assert(inputs.rows == 48);
-    assert(inputs.cols == 1);
+    assert(inputs.rows == 8);
+    assert(inputs.cols == 6);
+    assert(inputs.depth == 1);
 
-    for (int i = 0; i < 6; ++i) {
-        for (int j = 0; j < 8; ++j) {
-            mat_at(inputs, i * 8 + j, 0) = (faces[i].bitboard & (0xFF00000000000000 >> (j * 8))) >> (56 - (j * 8));
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 6; ++j) {
+            tens_at(inputs, i, j, 0) = (faces[j].bitboard & (0xFF00000000000000 >> (i * 8))) >> (56 - (i * 8));
         }
     }
 }

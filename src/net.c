@@ -90,9 +90,6 @@ void net_glorot(net n)
 {
     for (int i = 0; i < n.layers - 1; ++i) {
         mat_normal(n.weights[i], 0, 2 / (mat_at(n.topology, i, 0) + mat_at(n.topology, i + 1, 0)));
-    }
-
-    for (int i = 0; i < n.layers - 1; ++i) {
         mat_fill(n.biases[i], 0);
     }
 }
@@ -101,9 +98,6 @@ void net_he(net n)
 {
     for (int i = 0; i < n.layers - 1; ++i) {
         mat_normal(n.weights[i], 0, 2 / mat_at(n.topology, i, 0));
-    }
-
-    for (int i = 0; i < n.layers - 1; ++i) {
         mat_fill(n.biases[i], 0);
     }
 }
@@ -116,7 +110,7 @@ void net_print(net n)
     }
 }
 
-void feed_forward(net n, mat inputs)
+void net_forward(net n, mat inputs)
 {
 	assert(inputs.rows == mat_at(n.topology, 0, 0));
 	assert(inputs.cols == 1);
@@ -154,14 +148,16 @@ void feed_forward(net n, mat inputs)
 	}
 }
 
-void backprop(net n, mat inputs, mat targets, double rate)
+void net_backprop(net n, mat inputs, mat targets, double rate, mat delta)
 {
     assert(inputs.rows == mat_at(n.topology, 0, 0));
     assert(inputs.cols == 1);
     assert(targets.rows == mat_at(n.topology, n.layers - 1, 0));
     assert(targets.cols == 1);
+    assert(delta.rows == mat_at(n.topology, 0, 0));
+    assert(delta.cols == 1);
 
-    feed_forward(n, inputs);
+    net_forward(n, inputs);
 
     mat *deltas = malloc((n.layers - 1) * sizeof(mat));
     assert(deltas != NULL);
@@ -219,14 +215,23 @@ void backprop(net n, mat inputs, mat targets, double rate)
 
         free(dweight.vals);
         free(dbias.vals);
-        free(deltas[i].vals);
     }
 
     free(acts_trans.vals);
+
+    mat weight_trans = mat_alloc(n.weights[0].cols, n.weights[0].rows);
+    mat_trans(weight_trans, n.weights[0]);
+
+    mat_dot(delta, weight_trans, deltas[0]);
+
+    free(weight_trans.vals);
+
+    for (int i = 0; i < n.layers - 1; ++i) {
+        free(deltas[i].vals);
+    }
+
     free(deltas);
 }
-
-double mean_squared(double output, double target) { return pow(output - target, 2); }
 
 void net_spx(net child1, net child2, net parent1, net parent2)
 {

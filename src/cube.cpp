@@ -23,14 +23,14 @@ void train(cnet cn, net value, net policy, char *path)
     net_he(policy);
 
     for (int i = 0; i < 25; ++i) {
-        for (int j = 0; j < 10 * 1000; ++j) {
+        for (int j = 0; j < i * 10 * 1000; ++j) {
             cube c;
             c.scramble(i + 1);
             tree t(c);
-            bool solved = t.mcts(cn, policy, 1000 * (i + 1));
+            int steps = t.mcts(cn, policy, 1000 * (i + 1));
             t.train_value(cn, value, 1e-3);
             t.train_policy(cn, policy, 1e-3);
-            printf("Scramble Length: %i | Epoch: %i | %s", i + 1, j + 1, (solved > 0 ? "Solved\n" : "Not solved\n"));
+            printf("Scramble Length: %i | Epoch: %i | %s | Steps: %d\n", i + 1, j + 1, (steps + 1 > 0 ? "Solved" : "Not solved"), steps + 1);
         }
     }
 
@@ -220,7 +220,7 @@ int main(int argc, char **argv)
     int policy_layers = 4;
 
     mat cn_convolutions = mat_alloc(cn_layers - 1, 1);
-    mat_fill(cn_convolutions, 64);
+    mat_fill(cn_convolutions, 16);
     mat cn_input_dims = mat_alloc(3, 1);
     mat_at(cn_input_dims, 0, 0) = 8;
     mat_at(cn_input_dims, 1, 0) = 6;
@@ -231,8 +231,8 @@ int main(int argc, char **argv)
     }
 
     mat value_topology = mat_alloc(value_layers, 1);
-    mat_at(value_topology, 0, 0) = 64;
-    mat_at(value_topology, 1, 0) = 128;
+    mat_at(value_topology, 0, 0) = 16;
+    mat_at(value_topology, 1, 0) = 64;
     mat_at(value_topology, 2, 0) = 64;
     mat_at(value_topology, 3, 0) = 1;
     net value = net_alloc(value_layers, value_topology);
@@ -241,8 +241,8 @@ int main(int argc, char **argv)
     }
 
     mat policy_topology = mat_alloc(policy_layers, 1);
-    mat_at(policy_topology, 0, 0) = 64;
-    mat_at(policy_topology, 1, 0) = 128;
+    mat_at(policy_topology, 0, 0) = 16;
+    mat_at(policy_topology, 1, 0) = 64;
     mat_at(policy_topology, 2, 0) = 64;
     mat_at(policy_topology, 3, 0) = 12;
     net policy = net_alloc(policy_layers, policy_topology);

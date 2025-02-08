@@ -14,6 +14,7 @@ double sig(double x);
 double dsig(double x);
 double relu(double x);
 double drelu(double x);
+double clip(double x);
 
 typedef struct mat {
 	int rows;
@@ -61,6 +62,7 @@ void tens_fill(tens t, double val);
 void tens_copy(tens destination, tens t);
 void tens_add(tens destination, tens t1, tens t2);
 void tens_sub(tens destination, tens t1, tens t2);
+void tens_had(tens destinaiton, tens t1, tens t2);
 void tens_scale(tens destination, tens t, double a);
 void tens_func(tens destination, tens t, func f);
 void tens_pad(tens destination, tens t);

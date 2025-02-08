@@ -11,6 +11,12 @@ double relu(double x) { return x * (x > 0); }
 
 double drelu(double x) { return x > 0; }
 
+double clip(double x) {
+    if (x > 1) return 1;
+    if (x < -1) return -1;
+    return x;
+}
+
 net net_alloc(int layers, mat topology)
 {
 	assert(topology.rows == layers);
@@ -203,9 +209,12 @@ void net_backprop(net n, mat inputs, mat targets, double rate, mat delta)
         mat dbias = mat_alloc(n.biases[i].rows, n.biases[i].cols);
         mat_copy(dbias, deltas[i]);
 
+        mat_func(dweight, dweight, clip);
+        mat_func(dbias, dbias, clip);
+
         mat_scale(dweight, dweight, rate);
         mat_scale(dbias, dbias, rate);
-
+ 
         mat_sub(n.weights[i], n.weights[i], dweight);
         mat_sub(n.biases[i], n.biases[i], dbias);
 

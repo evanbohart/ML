@@ -1,4 +1,5 @@
 #include "nn.h"
+#include <math.h>
 #include <assert.h>
 
 cnet cnet_alloc(int layers, mat convolutions, mat input_dims, int filter_size)
@@ -317,17 +318,6 @@ void cnet_backprop(cnet cn, tens inputs, mat delta, double rate)
             }
         }
 
-        switch (cn.actfuncs[i - 1]) {
-            case SIGMOID:
-                tens_func(deltas[i - 1], deltas[i - 1], dsig);
-                break;
-            case RELU:
-                tens_func(deltas[i - 1], deltas[i - 1], drelu);
-                break;
-            case SOFTMAX:
-                break;
-        }
-
         tens_destroy(&padded);
         free(filter_trans.vals);
         free(convolved.vals);
@@ -341,11 +331,13 @@ void cnet_backprop(cnet cn, tens inputs, mat delta, double rate)
             mat_convolve(dfilter.mats[j], inputs.mats[j], deltas[0].mats[i]);
         }
 
+        tens_func(dfilter, dfilter, clip);
         tens_scale(dfilter, dfilter, rate);
         tens_sub(cn.filters[0][i], cn.filters[0][i], dfilter);
     }
 
     tens_copy(dbias, deltas[0]);
+    tens_func(dbias, dbias, clip);
     tens_scale(dbias, dbias, rate);
     tens_sub(cn.biases[0], cn.biases[0], dbias);
 
@@ -362,11 +354,13 @@ void cnet_backprop(cnet cn, tens inputs, mat delta, double rate)
                 mat_convolve(dfilter.mats[k], cn.acts[i - 1].mats[k], deltas[i].mats[j]); 
             }
 
+            tens_func(dfilter, dfilter, clip);
             tens_scale(dfilter, dfilter, rate);
             tens_sub(cn.filters[i][j], cn.filters[i][j], dfilter);
         }
 
         tens_copy(dbias, deltas[i]);
+        tens_func(dbias, dbias, clip);
         tens_scale(dbias, dbias, rate);
         tens_sub(cn.biases[i], cn.biases[i], dbias);
 

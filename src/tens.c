@@ -130,16 +130,7 @@ void tens_flatten(mat destination, tens t)
     assert(destination.cols == 1);
 
     for (int i = 0; i < t.depth; ++i) {
-        double val = -DBL_MAX;
-        for (int j = 0; j < t.rows; ++j) {
-            for (int k = 0; k < t.cols; ++k) {
-                if (tens_at(t, j, k, i) > val) {
-                    val = tens_at(t, j, k, i);
-                }
-            }
-        }
-
-        mat_at(destination, i, 0) = val;
+        mat_at(destination, i, 0) = mat_max(t.mats[i]);
     }
 }
 
@@ -155,6 +146,8 @@ void tens_destroy(tens *t)
     for (int i = 0; i < t->depth; ++i) {
         free(t->mats[i].vals);
     }
+
+    free(t->mats);
 }
 
 void tens_load(tens *t, FILE *f)

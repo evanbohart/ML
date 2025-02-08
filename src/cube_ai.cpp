@@ -38,7 +38,7 @@ void tree::expand_state(cnet cn, net policy, state *root)
     assert(!root->children);
 
     tens conv_inputs = tens_alloc(8, 6, 1);
-    mat dense_inputs = mat_alloc(64, 1);
+    mat dense_inputs = mat_alloc(16, 1);
 
     root->c.get_inputs(conv_inputs);
     cnet_forward(cn, conv_inputs);
@@ -93,13 +93,13 @@ double tree::uct(const state *root) const
     return sqrt(2) * sqrt(log(root->parent->visits + 1) / (root->visits + 1)) + root->prior;
 }
 
-double tree::eval(cnet cn, net value, const state *root)
+double tree::eval(cnet cn, net value, state *root)
 {
     tens conv_inputs = tens_alloc(8, 6, 1);
     root->c.get_inputs(conv_inputs);
     cnet_forward(cn, conv_inputs);
 
-    mat dense_inputs = mat_alloc(64, 1);
+    mat dense_inputs = mat_alloc(16, 1);
     tens_flatten(dense_inputs, cn.acts[cn.layers - 2]);
     net_forward(value, dense_inputs);
 
@@ -120,7 +120,7 @@ void tree::backup(state *leaf, double value)
     }
 }
 
-bool tree::mcts(cnet cn, net policy, int n)
+int tree::mcts(cnet cn, net policy, int n)
 {
     assert(!root->children);
 
@@ -132,7 +132,7 @@ bool tree::mcts(cnet cn, net policy, int n)
 
         if (leaf->c.is_solved()) {
             backup(leaf, 1);
-            return true;
+            return i;
         }
         else {
             expand_state(cn, policy, leaf);
@@ -140,9 +140,10 @@ bool tree::mcts(cnet cn, net policy, int n)
         }
 
         backup(leaf, leaf->c.is_solved());
+        if (leaf->c.is_solved()) return i;
     }
 
-    return false;
+    return -1;
 }
 
 void tree::generate_solution(stack<move> &moves, state *leaf)
@@ -187,14 +188,17 @@ bool tree::solve(cnet cn, net value, net policy, stack<move> &moves, int n)
 
 void tree::train_value(cnet cn, net value, double rate)
 {
-    assert(root->children);
+    train_value(cn, value, rate, root);
+}
 
+void tree::train_value(cnet cn, net value, double rate, state *root)
+{
     if (!root->value) return;
 
     tens conv_inputs = tens_alloc(8, 6, 1);
-    mat dense_inputs = mat_alloc(64, 1);
+    mat dense_inputs = mat_alloc(16, 1);
     mat targets = mat_alloc(1, 1);
-    mat delta = mat_alloc(64, 1);
+    mat delta = mat_alloc(16, 1);
 
     root->c.get_inputs(conv_inputs);
 
@@ -210,30 +214,44 @@ void tree::train_value(cnet cn, net value, double rate)
     free(dense_inputs.vals);
     free(targets.vals);
     free(delta.vals);
-}
+ 
+    if (root->children) {
+        int index = 0;
+        for (int i = 0; i < 12; ++i) {
+            if (root->children[i]->value > 0) {
+                index = i;
+                break;
+            }
+        }
 
+        train_value(cn, value, rate *.95, root->children[index]);
+    }
+}
+   
 void tree::train_policy(cnet cn, net policy, double rate)
 {
-    assert(root->children);
+    train_policy(cn, policy, rate, root);
+}
 
-    if (!root->value) return;
+void tree::train_policy(cnet cn, net policy, double rate, state *root)
+{
+    if (!root->value || !root->children) return;
 
     tens conv_inputs = tens_alloc(8, 6, 1);
-    mat dense_inputs = mat_alloc(64, 1);
+    mat dense_inputs = mat_alloc(16, 1);
     mat targets = mat_alloc(12, 1);
-    mat delta = mat_alloc(64, 1);
+    mat delta = mat_alloc(16, 1);
 
     root->c.get_inputs(conv_inputs);
 
     cnet_forward(cn, conv_inputs);
     tens_flatten(dense_inputs, cn.acts[cn.layers - 2]);
 
-    int max = 0;
     int index = 0;
     for (int i = 0; i < 12; ++i) {
-        if (root->children[i]->value > max) {
-            max = root->children[i]->value;
+        if (root->children[i]->value > 0) {
             index = i;
+            break;
         }
     }
 
@@ -247,4 +265,6 @@ void tree::train_policy(cnet cn, net policy, double rate)
     free(dense_inputs.vals);
     free(targets.vals);
     free(delta.vals);
+
+    train_policy(cn, policy, rate * .95, root->children[index]);
 }

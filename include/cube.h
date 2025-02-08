@@ -84,15 +84,15 @@ class tree
         void backup(state *leaf, double value);
         void expand_state(cnet cn, net policy, state *root);
         double uct(const state *root) const;
-        double eval(cnet cn, net value, const state *root);
+        double eval(cnet cn, net value, state *root);
         void generate_solution(stack<move> &moves, state *leaf);
-        void train_value(cnet cn, net value, state *root, mat inputs, mat targets, double rate);
-        void train_policy(cnet cn, net policy, state *root, mat inputs, mat targets, double rate);
+        void train_value(cnet cn, net value, double rate, state *root);
+        void train_policy(cnet cn, net policy, double rate, state *root);
  
     public:
         tree(const cube &c);
         ~tree();
-        bool mcts(cnet cn, net policy, int n);
+        int mcts(cnet cn, net policy, int n);
         bool solve(cnet cn, net value, net policy, stack<move> &moves, int n);
         void train_value(cnet cn, net value, double rate);
         void train_policy(cnet cn, net policy, double rate);

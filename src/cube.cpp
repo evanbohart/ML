@@ -221,6 +221,7 @@ int main(int argc, char **argv)
 
     mat cn_convolutions = mat_alloc(cn_layers - 1, 1);
     mat_fill(cn_convolutions, 16);
+
     mat cn_input_dims = mat_alloc(3, 1);
     mat_at(cn_input_dims, 0, 0) = 8;
     mat_at(cn_input_dims, 1, 0) = 6;

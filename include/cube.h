@@ -85,18 +85,17 @@ class tree
         void expand_state(cnet cn, net policy, state *root);
         double uct(const state *root) const;
         double eval(cnet cn, net value, state *root);
-        void generate_solution(stack<move> &moves, state *leaf);
-        void train_value(cnet cn, net value, double rate, state *root);
-        void train_policy(cnet cn, net policy, double rate, state *root);
+        void generate_solution(stack<move> &solution, state *leaf);
+        void train_value(cnet cn, net value, stack<move> &solution, double rate, state *root);
+        void train_policy(cnet cn, net policy, stack<move> &solution, double rate, state *root);
  
     public:
         tree(const cube &c);
         ~tree();
-        int mcts(cnet cn, net policy, int n);
-        bool solve(cnet cn, net value, net policy, stack<move> &moves, int n);
-        void train_value(cnet cn, net value, double rate);
-        void train_policy(cnet cn, net policy, double rate);
-
+        int mcts(cnet cn, net policy, stack<move> &solution, int n);
+        int mcts(cnet cn, net value, net policy, stack<move> &solution, int n);
+        void train_value(cnet cn, net value, stack<move> &solution, double rate);
+        void train_policy(cnet cn, net policy, stack<move> &solution, double rate);
 };
 
 uint64_t roll_left(uint64_t x, int bits);

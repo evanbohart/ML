@@ -8,7 +8,6 @@ int read_next_img(FILE *f, tens input)
     unsigned char target;
     if (!fread(&target, 1, sizeof(target), f)) return -1;
 
-    printf("%d\n", target);
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 32; ++j) {
             for (int k = 0; k < 32; ++k) {
@@ -27,13 +26,12 @@ void train(cnet cn, net n, char *path)
     cnet_he(cn);
     net_he(n);
 
-    char files[6][100];
-    get_path(files[0], "cifar-10-batches-bin\\data_batch.bin");
-    get_path(files[1], "cifar-10-batches-bin\\data_batch_1.bin");
-    get_path(files[2], "cifar-10-batches-bin\\data_batch_2.bin");
-    get_path(files[3], "cifar-10-batches-bin\\data_batch_3.bin");
-    get_path(files[4], "cifar-10-batches-bin\\data_batch_4.bin");
-    get_path(files[5], "cifar-10-batches-bin\\data_batch_5.bin");
+    char files[5][100];
+    get_path(files[0], "cifar-10-batches-bin\\data_batch_1.bin");
+    get_path(files[1], "cifar-10-batches-bin\\data_batch_2.bin");
+    get_path(files[2], "cifar-10-batches-bin\\data_batch_3.bin");
+    get_path(files[3], "cifar-10-batches-bin\\data_batch_4.bin");
+    get_path(files[4], "cifar-10-batches-bin\\data_batch_5.bin");
 
     tens cn_inputs = tens_alloc(32, 32, 3);
     mat n_inputs = mat_alloc(16, 1);

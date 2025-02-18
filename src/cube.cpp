@@ -22,7 +22,7 @@ void train(cnet cn, net value, net policy, char *path)
     net_glorot(value);
     net_he(policy);
 
-    for (int i = 0; i < 25; ++i) {
+ /**   for (int i = 0; i < 25; ++i) {
         for (int j = 0; j < i * 10 * 1000; ++j) {
             cube c;
             c.scramble(i + 1);
@@ -32,7 +32,7 @@ void train(cnet cn, net value, net policy, char *path)
             t.train_policy(cn, policy, 1e-3);
             printf("Scramble Length: %i | Epoch: %i | %s | Steps: %d\n", i + 1, j + 1, (steps + 1 > 0 ? "Solved" : "Not solved"), steps + 1);
         }
-    }
+    }**/
 
     FILE *f = fopen(path, "wb");
     if (!f) {
@@ -70,7 +70,7 @@ void showcase(cnet cn, net value, net policy, char *path)
         c.scramble(n);
         tree t(c);
 
-        if (!t.solve(cn, value, policy, solution, 25 * 1000)) {
+        if (!t.mcts(cn, value, policy, solution, 25 * 1000)) {
             printf("No solution found.\n");
         }
         else {

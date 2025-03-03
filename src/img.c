@@ -45,6 +45,16 @@ void train(cnet cn, net n, char *path)
         while ((target_index = read_next_img(f, cn_inputs)) != -1) {
             cnet_forward(cn, cn_inputs);
             tens_flatten(n_inputs, cn.acts[cn.layers - 2]);
+            net_forward(n, n_inputs);
+
+            int predicted;
+            for (int i = 0; i < n.acts[n.layers - 2].rows; ++i) {
+                int max = mat_max(n.acts[n.layers - 2]);
+                if (mat_at(n.acts[n.layers - 2], i, 0) == max) {
+                    predicted = i;
+                    break;
+                }
+            }
 
             mat_fill(targets, 0);
             mat_at(targets, target_index, 0) = 1;
@@ -52,7 +62,7 @@ void train(cnet cn, net n, char *path)
             net_backprop(n, n_inputs, targets, 1e-3, delta);
             cnet_backprop(cn, cn_inputs, delta, 1e-3);
 
-            printf("File %d | Epoch %d\n", i, ++epoch);
+            printf("File %d | Epoch %d | Predicted %d | Actual %d\n", i, ++epoch, predicted, target_index);
         }
     }
 

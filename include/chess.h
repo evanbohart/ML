@@ -11,22 +11,22 @@ extern "C" {
 
 enum col { A, B, C, D, E, F, G, H };
 
-#define MASK_A 0x0101010101010101ULL
-#define MASK_B 0x0202020202020202ULL
-#define MASK_C 0x0404040404040404ULL
-#define MASK_D 0x0808080808080808ULL
-#define MASK_E 0x1010101010101010ULL
-#define MASK_F 0x2020202020202020ULL
-#define MASK_G 0x4040404040404040ULL
-#define MASK_H 0x8080808080808080ULL
-#define MASK_1 0x00000000000000FFULL
-#define MASK_2 0x000000000000FF00ULL
-#define MASK_3 0x0000000000FF0000ULL
-#define MASK_4 0x00000000FF000000ULL
-#define MASK_5 0x000000FF00000000ULL
-#define MASK_6 0x0000FF0000000000ULL
-#define MASK_7 0x00FF000000000000ULL
-#define MASK_8 0xFF00000000000000ULL
+#define MASK_A ~0x0101010101010101ULL
+#define MASK_B ~0x0202020202020202ULL
+#define MASK_C ~0x0404040404040404ULL
+#define MASK_D ~0x0808080808080808ULL
+#define MASK_E ~0x1010101010101010ULL
+#define MASK_F ~0x2020202020202020ULL
+#define MASK_G ~0x4040404040404040ULL
+#define MASK_H ~0x8080808080808080ULL
+#define MASK_1 ~0x00000000000000FFULL
+#define MASK_2 ~0x000000000000FF00ULL
+#define MASK_3 ~0x0000000000FF0000ULL
+#define MASK_4 ~0x00000000FF000000ULL
+#define MASK_5 ~0x000000FF00000000ULL
+#define MASK_6 ~0x0000FF0000000000ULL
+#define MASK_7 ~0x00FF000000000000ULL
+#define MASK_8 ~0xFF00000000000000ULL
 
 #define calc_shift(bitboard, x, y) (((x) + 8 * (y) > 0) ? \
                                    (bitboard) << ((x) + 8 * (y)) : \
@@ -113,6 +113,12 @@ bitboard get_knight_attacks(bitboard knights);
 bitboard get_bishop_attacks(bitboard bishops, board b);
 bitboard get_rook_attacks(bitboard rooks, board b);
 bitboard get_queen_attacks(bitboard queens, board b);
+
+bitboard get_bishop_attacks_slow(bitboard blockers, int pos);
+bitboard get_rook_attacks_slow(bitboard blockers, int pos);
+
+void init_bishop_attack_table(void);
+void init_rook_attack_table(void);
 
 extern bitboard *bishop_attack_table[64];
 extern const bitboard bishop_masks[64];

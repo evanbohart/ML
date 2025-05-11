@@ -71,7 +71,7 @@ bitboard apply_masks(bitboard b, int count, ...)
     va_start(args, count);
 
     for (int i = 0; i < count; ++i) {
-        b &= ~va_arg(args, bitboard);
+        b &= va_arg(args, bitboard);
     }
     va_end(args);
 
@@ -243,8 +243,7 @@ bitboard get_bishop_attacks(bitboard bishops, board b)
         int pos = __builtin_ctzll(bishops);
         clear_bit(&bishops, pos);
 
-        bitboard blockers = apply_masks(b.white_pieces | b.black_pieces, 1, bishop_masks[pos]);
-        int index = bishop_hash(blockers, pos);
+        int index = bishop_hash(b.white_pieces | b.black_pieces, pos);
 
         set_bits(&attacks, bishop_attack_table[pos][index]);
     }
@@ -260,8 +259,7 @@ bitboard get_rook_attacks(bitboard rooks, board b)
         int pos = __builtin_ctzll(rooks);
         clear_bit(&rooks, pos);
 
-        bitboard blockers = apply_masks(b.white_pieces | b.black_pieces, 1, rook_masks[pos]);
-        int index = rook_hash(blockers, pos);
+        int index = rook_hash(b.white_pieces | b.black_pieces, pos);
 
         set_bits(&attacks, rook_attack_table[pos][index]);
     }
@@ -274,46 +272,138 @@ bitboard get_queen_attacks(bitboard queens, board b)
     return get_bishop_attacks(queens, b) | get_rook_attacks(queens, b);
 }
 
+
+bitboard get_bishop_attacks_slow(bitboard blockers, int pos)
+{
+    bitboard attacks = 0ULL;
+
+    int file = pos % 8;
+    int rank = pos / 8;
+
+    for (int i = file + 1, j = rank + 1; i < 8 && j < 8; ++i, ++j) {
+        set_bit(&attacks, j * 8 + i);
+        if (check_bit(blockers, j * 8 + i)) break;
+    }
+
+    for (int i = file + 1, j = rank - 1; i < 8 && j >= 0; ++i, --j) {
+        set_bit(&attacks, j * 8 + i);
+        if (check_bit(blockers, j * 8 + i)) break;
+    }
+
+    for (int i = file - 1, j = rank - 1; i >= 0 && j >= 0; --i, --j) {
+        set_bit(&attacks, j * 8 + i);
+        if (check_bit(blockers, j * 8 + i)) break;
+    }
+
+    for (int i = file - 1, j = rank + 1; i >= 0 && j < 8; --i, ++j) {
+        set_bit(&attacks, j * 8 + i);
+        if (check_bit(blockers, j * 8 + i)) break;
+    }
+
+    return attacks;
+}
+
+void init_bishop_attack_table(void)
+{
+    for (int i = 0; i < 64; ++i) {
+        int n = 1 << (64 - bishop_shifts[i]);
+        bishop_attack_table[i] = malloc(n * sizeof(bitboard));
+        bitboard blockers[n];
+        bitboard temp = 0ULL;
+
+        for (int j = 0; j < n; ++j) {
+            bool fail = true;
+            while (fail) {
+                fail = false;
+                blockers[j] = apply_masks(rand_bitboard(&temp, 32), 1, bishop_masks[i]);
+                temp = 0ULL;
+                for (int k = 0; k < j; ++k) {
+                    if (blockers[j] == blockers[k]) {
+                        fail = true;
+                        break;
+                    }
+                }
+            }
+
+            int index = bishop_hash(blockers[j], bishop_shifts[i]);
+            bishop_attack_table[i][index] = get_bishop_attacks_slow(blockers[j], i);
+        }
+    }
+}
+
 bitboard *bishop_attack_table[64];
 
 const bitboard bishop_masks[64] = {
-    0x0040201008040200ULL, 0x0000402010080400ULL,
-    0x0000004020100a00ULL, 0x0000000040221400ULL,
-    0x0000000002442800ULL, 0x0000000204085000ULL,
-    0x0000020408102000ULL, 0x0002040810204000ULL,
-    0x0020100804020000ULL, 0x0040201008040000ULL,
-    0x00004020100a0000ULL, 0x0000004022140000ULL,
-    0x0000000244280000ULL, 0x0000020408500000ULL,
-    0x0002040810200000ULL, 0x0004081020400000ULL,
-    0x0010080402000200ULL, 0x0020100804000400ULL,
-    0x004020100a000a00ULL, 0x0000402214001400ULL,
-    0x0000024428002800ULL, 0x0002040850005000ULL,
-    0x0004081020002000ULL, 0x0008102040004000ULL,
-    0x0008040200020400ULL, 0x0010080400040800ULL,
-    0x0020100a000a1000ULL, 0x0040221400142200ULL,
-    0x0002442800284400ULL, 0x0004085000500800ULL,
-    0x0008102000201000ULL, 0x0010204000402000ULL,
-    0x0004020002040800ULL, 0x0008040004081000ULL,
-    0x00100a000a102000ULL, 0x0022140014224000ULL,
-    0x0044280028440200ULL, 0x0008500050080400ULL,
-    0x0010200020100800ULL, 0x0020400040201000ULL,
-    0x0002000204081000ULL, 0x0004000408102000ULL,
-    0x000a000a10204000ULL, 0x0014001422400000ULL,
-    0x0028002844020000ULL, 0x0050005008040200ULL,
-    0x0020002010080400ULL, 0x0040004020100800ULL,
-    0x0000020408102000ULL, 0x0000040810204000ULL,
-    0x00000a1020400000ULL, 0x0000142240000000ULL,
-    0x0000284402000000ULL, 0x0000500804020000ULL,
-    0x0000201008040200ULL, 0x0000402010080400ULL,
-    0x0002040810204000ULL, 0x0004081020400000ULL,
-    0x000a102040000000ULL, 0x0014224000000000ULL,
-    0x0028440200000000ULL, 0x0050080402000000ULL,
-    0x0020100804020000ULL, 0x0040201008040200ULL
+    0x0902000400004902ULL, 0x2000044000000010ULL,
+    0x0800031508000400ULL, 0x200000000a002300ULL,
+    0x4600024018000102ULL, 0x1000004040480100ULL,
+    0x0000010a20103000ULL, 0x010100002a440008ULL,
+    0x084c480040000290ULL, 0x000e001102441a24ULL,
+    0x2100100000000000ULL, 0x4000188020200004ULL,
+    0x0020012004020500ULL, 0x4080608100020620ULL,
+    0x0011224000000000ULL, 0x6002020300020200ULL,
+    0x4200080040000400ULL, 0x0000000110090000ULL,
+    0x0010403848000000ULL, 0x0000110040202410ULL,
+    0x020020c000804d04ULL, 0x0034000024062000ULL,
+    0x4404000004010020ULL, 0x0000308000000010ULL,
+    0x0002004000000108ULL, 0x2421010000100144ULL,
+    0x0046010802205080ULL, 0x0010000440600000ULL,
+    0x0048004053030280ULL, 0x2302200020040008ULL,
+    0x1000102000842284ULL, 0x0002000020081014ULL,
+    0x10d8000040160000ULL, 0x0608002205105001ULL,
+    0x1000000040000108ULL, 0x4020480120800000ULL,
+    0x022028005c040840ULL, 0x0000000070204041ULL,
+    0x000000060b884064ULL, 0x00010000011008a6ULL,
+    0x2080044500080024ULL, 0x4000000250001040ULL,
+    0x0002004802830000ULL, 0x05000000000a00a0ULL,
+    0x0180000002000000ULL, 0x0474302641000600ULL,
+    0x2000020000004840ULL, 0x2012400400000000ULL,
+    0x0402400120410000ULL, 0x0700001800002804ULL,
+    0x0000240000000083ULL, 0x0840212100400000ULL,
+    0x408808020012008aULL, 0x088821dc00000800ULL,
+    0x0510000000200c01ULL, 0x0c0000c002200420ULL,
+    0x0825008020810450ULL, 0x2400209400021100ULL,
+    0x00000200000c0040ULL, 0x20011403200005a2ULL,
+    0x0000040200010200ULL, 0x0004000428010001ULL,
+    0x2005080440001400ULL, 0x0080401a00160d00ULL
 };
 
-const bitboard bishop_magic[64];
+const bitboard bishop_magic[64] = {
+    0x1010002805000084ULL, 0x0000100410806020ULL,
+    0x0001480214080102ULL, 0x0240080805020103ULL,
+    0x0000190000840900ULL, 0x0810018200024020ULL,
+    0x2090404220000000ULL, 0x0a40009248800802ULL,
+    0x00814040400000c1ULL, 0x000005c442800100ULL,
+    0x0010000100000010ULL, 0x0014020806001050ULL,
+    0x0410000000000129ULL, 0x0000161010422000ULL,
+    0x02001080049020acULL, 0x0148400006004800ULL,
+    0x4098080002400000ULL, 0x4400108040000c02ULL,
+    0x0008000000030024ULL, 0x22900000102a0000ULL,
+    0x0000440032000000ULL, 0x0000090102000004ULL,
+    0x0240400120100000ULL, 0x404040a00b900880ULL,
+    0x0003200000012000ULL, 0x1020140048a80000ULL,
+    0x200200d400400002ULL, 0x0000481120044080ULL,
+    0x2004459001081040ULL, 0x2058220020000202ULL,
+    0x2000000800040200ULL, 0x0c00020200000001ULL,
+    0x110c000001080041ULL, 0x0260000701800000ULL,
+    0x0001204108001051ULL, 0x021c000000080801ULL,
+    0x0400090000050000ULL, 0x0900010140344800ULL,
+    0x1000212806000200ULL, 0x0421000204280408ULL,
+    0x088200a000002300ULL, 0x00a0000130101000ULL,
+    0x0000001200200028ULL, 0x1195482000000008ULL,
+    0x070a020206060804ULL, 0x00a4000000000000ULL,
+    0x0340000000200019ULL, 0x2041048007004410ULL,
+    0x0201000061044a00ULL, 0x0034000120001100ULL,
+    0x0100000030080090ULL, 0x0008040000204001ULL,
+    0x0810000040000801ULL, 0x2001000205106040ULL,
+    0x4080210004002420ULL, 0x0901441504121100ULL,
+    0x0000000008010008ULL, 0x0100006000222400ULL,
+    0x0085000860400610ULL, 0x0000400800000000ULL,
+    0x2480000008020120ULL, 0x400000000005100cULL,
+    0x300140080c210002ULL, 0x20220540102d0c20ULL
+};
 
-const int bishop_shifts[64] = { 
+const int bishop_shifts[64] = {
     58, 59, 59, 59, 59, 59, 59, 58,
     59, 59, 59, 59, 59, 59, 59, 59,
     59, 59, 57, 57, 57, 57, 59, 59,
@@ -331,7 +421,7 @@ const int rook_shifts[64];
 
 int bishop_hash(bitboard blockers, int pos)
 {
-    return 0;
+    return apply_masks(blockers, 1, bishop_masks[pos]) * bishop_magic[pos] >> bishop_shifts[pos];
 }
 
 int rook_hash(bitboard blockers, int pos)

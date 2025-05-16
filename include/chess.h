@@ -33,6 +33,8 @@ enum col { A, B, C, D, E, F, G, H };
                                    (bitboard) >> (-(x) - 8 * (y)))
 
 typedef uint64_t bitboard;
+typedef uint16_t move; // bits 0-5 is previous position, bits 6-11 is new position,
+                       // bits 12-13 are flags such as castling, promotion, en passant
 
 #define bitboard_at(col, row) (1ULL << (((row) - 1) * 8 + (col)))
 
@@ -60,6 +62,18 @@ typedef struct board {
     bitboard white_rooks, black_rooks;
     bitboard white_pieces, black_pieces;
 } board;
+
+#define MAX_MOVES 256
+
+typedef struct move_list {
+    move moves[MAX_MOVES];
+    int count;
+} move_list;
+
+move create_move(int from, int to, int flags);
+void clear_moves(move_list *l);
+bool add_move(move m, move_list *l);
+void display_moves(move_list l);
 
 #define STARTING_WHITE_KING bitboard_at(E, 1)
 #define STARTING_BLACK_KING bitboard_at(E, 8)
@@ -91,20 +105,20 @@ bool black_check(board b);
 bool white_checkmate(board b);
 bool black_checkmate(board b);
 void draw_board(board b);
+//TODO piece moves
+bool get_white_king_moves(board b, move_list *l);
+bool get_white_pawn_moves(board b, move_list *l);
+bool get_white_knight_moves(board b, move_list *l);
+bool get_white_bishop_moves(board b, move_list *l);
+bool get_white_queen_moves(board b, move_list *l);
+bool get_white_rook_moves(board b, move_list *l);
 
-bitboard get_white_king_moves(board b);
-bitboard get_white_pawn_moves(board b);
-bitboard get_white_knight_moves(board b);
-bitboard get_white_bishop_moves(board b);
-bitboard get_white_queen_moves(board b);
-bitboard get_white_rook_moves(board b);
-
-bitboard get_black_king_moves(board b);
-bitboard get_black_pawn_moves(board b);
-bitboard get_black_knight_moves(board b);
-bitboard get_black_bishop_moves(board b);
-bitboard get_black_queen_moves(board b);
-bitboard get_black_rook_moves(board b);
+bool get_black_king_moves(board b, move_list *l);
+bool get_black_pawn_moves(board b, move_list *l);
+bool get_black_knight_moves(board b, move_list *l);
+bool get_black_bishop_moves(board b, move_list *l);
+bool get_black_queen_moves(board b, move_list *l);
+bool get_black_rook_moves(board b, move_list *l);
 
 bitboard get_king_attacks(bitboard king);
 bitboard get_white_pawn_attacks(bitboard pawns);
@@ -114,24 +128,28 @@ bitboard get_bishop_attacks(bitboard bishops, board b);
 bitboard get_rook_attacks(bitboard rooks, board b);
 bitboard get_queen_attacks(bitboard queens, board b);
 
+extern bitboard *bishop_attack_table[64];
+
+extern const bitboard bishop_masks[64];
+extern const bitboard bishop_magic[64];
+extern const int bishop_shifts[64];
+
+extern bitboard *rook_attack_table[64];
+
+extern const bitboard rook_masks[64];
+extern const bitboard rook_magic[64];
+extern const int rook_shifts[64];
+
 bitboard get_bishop_attacks_slow(bitboard blockers, int pos);
 bitboard get_rook_attacks_slow(bitboard blockers, int pos);
 
 void init_bishop_attack_table(void);
 void init_rook_attack_table(void);
 
-extern bitboard *bishop_attack_table[64];
-extern const bitboard bishop_masks[64];
-extern const bitboard bishop_magic[64];
-extern const int bishop_shifts[64];
-
-extern bitboard *rook_attack_table[64];
-extern const bitboard rook_masks[64];
-extern const bitboard rook_magic[64];
-extern const int rook_shifts[64];
-
 int bishop_hash(bitboard blockers, int pos);
 int rook_hash(bitboard blockers, int pos);
+
+bitboard get_blockers(bitboard mask, int x);
 
 bitboard get_white_attacks(board b);
 bitboard get_black_attacks(board b);

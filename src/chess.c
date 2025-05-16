@@ -56,7 +56,7 @@ void draw_bitboard(bitboard b)
         printf("%d ", i + 1);
 
         for (int j = 0; j < 8; ++j) {
-            printf("%llu ", (b >> (i * 8 + j)) & 1ULL);
+            printf("%llu ", b >> (i * 8 + j) & 1ULL);
         }
 
         printf("\n");
@@ -128,6 +128,36 @@ board rand_board(void)
     return b;
 }
 
+bool white_check(board b)
+{
+    return b.white_king & get_black_attacks(b);
+}
+
+bool black_check(board b)
+{
+    return b.black_king & get_white_attacks(b);
+}
+
+bool white_checkmate(board b)
+{
+    if (!white_check(b)) return false;
+
+    move_list l;
+    get_white_king_moves(b, &l);
+
+    return l.count == 0;
+}
+
+bool black_checkmate(board b)
+{
+    if (black_check(b)) return false;
+
+    move_list l;
+    get_black_king_moves(b, &l);
+
+    return l.count == 0;
+}
+
 void draw_board(board b)
 {
     bitboard pieces[12] = { b.white_king, b.white_pawns, b.white_knights,
@@ -159,15 +189,192 @@ void draw_board(board b)
     printf("  a b c d e f g h\n");
 }
 
-bool white_check(board b)
+move create_move(int from, int to, int flag)
 {
-    return b.white_king & get_black_attacks(b);
+    return (move)from | ((move)to << 6) | ((move)flag << 12);
 }
 
-bool black_check(board b)
+void clear_moves(move_list *l)
 {
-    return b.black_king & get_white_attacks(b);
+    l->count = 0;
 }
+
+bool add_move(move m, move_list *l)
+{
+    if (l->count == MAX_MOVES) return false;
+
+    l->moves[l->count++] = m;
+    return true;
+}
+
+void display_moves(move_list l)
+{
+    for (int i = 0; i < l.count; ++i) {
+        int from = 0x003F & l.moves[i];
+        int to = 0x003F & (l.moves[i] >> 6);
+        int flags = 0x000F & (l.moves[i] >> 12);
+
+        char from_file = from % 8 + 'a';
+        char to_file = to % 8 + 'a';
+
+        int from_rank = from / 8 + 1;
+        int to_rank = to / 8 + 1;
+
+
+        printf("FROM: %c%d\n", from_file, from_rank);
+        printf("TO: %c%d\n", to_file, to_rank);
+        printf("FLAGS: %d\n", flags);
+    }
+}
+
+bool get_white_moves(board b, move_list *l)
+{
+    clear_moves(l);
+
+    if (!get_white_king_moves(b, l) || !get_white_pawn_moves(b, l)
+        //!get_white_knight_moves(b, l) || !get_white_bishop_moves(b, l) ||
+        //!get_white_rook_moves(b, l) || !get_white_queen_moves(b, l))
+    ) return false;
+
+    return true;
+}
+
+bool get_black_moves(board b, move_list *l)
+{
+    clear_moves(l);
+
+    if (!get_black_king_moves(b, l) || !get_black_pawn_moves(b, l)) return false;
+
+    return true;
+}
+
+bool get_white_king_moves(board b, move_list *l)
+{
+    //TODO castling
+    bitboard moves = get_king_attacks(b.white_king) & ~get_black_attacks(b) & ~b.white_pieces;
+
+    int from = __builtin_ctzll(b.white_king);
+    while (moves) {
+        int to = __builtin_ctzll(moves);
+        clear_bit(&moves, to);
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    return true;
+}
+
+bool get_black_king_moves(board b, move_list *l)
+{
+    bitboard moves = get_king_attacks(b.black_king) & ~get_white_attacks(b) & ~b.black_pieces;
+
+    int from = __builtin_ctzll(b.black_king);
+    while (moves) {
+        int to = __builtin_ctzll(moves);
+        clear_bit(&moves, to);
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    return true;
+}
+
+bool get_white_pawn_moves(board b, move_list *l)
+{
+    //TODO en passant
+    bitboard single_pushes = calc_shift(b.white_pawns, 0, 1) & ~(b.white_pieces | b.black_pieces);
+    bitboard double_pushes = apply_masks(calc_shift(single_pushes, 0, 1) &
+                                         ~(b.white_pieces | b.black_pieces), 1, ~MASK_4);
+
+    while (single_pushes) {
+        int to = __builtin_ctzll(single_pushes);
+        clear_bit(&single_pushes, to);
+        int from = to - 8;
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    while (double_pushes) {
+        int to = __builtin_ctzll(double_pushes);
+        clear_bit(&double_pushes, to);
+        int from = to - 16;
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    bitboard captures = get_white_pawn_attacks(b.white_pawns) & b.black_pieces;
+    bitboard captures_left = captures & calc_shift(b.white_pawns, -1, 1);
+    bitboard captures_right = captures & calc_shift(b.white_pawns, 1, 1);
+
+    while (captures_left) {
+        int to = __builtin_ctzll(captures_left);
+        clear_bit(&captures_left, to);
+        int from = to - 7;
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    while (captures_right) {
+        int to = __builtin_ctzll(captures_right);
+        clear_bit(&captures_right, to);
+        int from = to - 9;
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    return true;
+}
+
+bool get_black_pawn_moves(board b, move_list *l)
+{
+    bitboard single_pushes = calc_shift(b.black_pawns, 0, -1) & ~(b.white_pieces | b.black_pieces);
+    bitboard double_pushes = apply_masks(calc_shift(single_pushes, 0, -1) &
+                                         ~(b.white_pieces | b.black_pieces), 1, ~MASK_5);
+
+    while (single_pushes) {
+        int to = __builtin_ctzll(single_pushes);
+        clear_bit(&single_pushes, to);
+        int from = to + 8;
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    while (double_pushes) {
+        int to = __builtin_ctzll(double_pushes);
+        clear_bit(&double_pushes, to);
+        int from = to + 16;
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    bitboard captures = get_black_pawn_attacks(b.black_pawns) & b.white_pieces;
+    bitboard captures_left = captures & calc_shift(b.black_pawns, -1, -1);
+    bitboard captures_right = captures & calc_shift(b.black_pawns, 1, -1);
+
+    while (captures_left) {
+        int to = __builtin_ctzll(captures_left);
+        clear_bit(&captures_left, to);
+        int from = to + 9;
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    while (captures_right) {
+        int to = __builtin_ctzll(captures_right);
+        clear_bit(&captures_right, to);
+        int from = to + 7;
+
+        if (!add_move(create_move(from, to, 0), l)) return false;
+    }
+
+    return true;
+}
+
+void get_white_knight_moves(board b, move_list *l)
+{
+}
+
+void get_black_knight_moves(board b, move_list *l)
 
 bitboard get_white_attacks(board b)
 {
@@ -270,161 +477,4 @@ bitboard get_rook_attacks(bitboard rooks, board b)
 bitboard get_queen_attacks(bitboard queens, board b)
 {
     return get_bishop_attacks(queens, b) | get_rook_attacks(queens, b);
-}
-
-
-bitboard get_bishop_attacks_slow(bitboard blockers, int pos)
-{
-    bitboard attacks = 0ULL;
-
-    int file = pos % 8;
-    int rank = pos / 8;
-
-    for (int i = file + 1, j = rank + 1; i < 8 && j < 8; ++i, ++j) {
-        set_bit(&attacks, j * 8 + i);
-        if (check_bit(blockers, j * 8 + i)) break;
-    }
-
-    for (int i = file + 1, j = rank - 1; i < 8 && j >= 0; ++i, --j) {
-        set_bit(&attacks, j * 8 + i);
-        if (check_bit(blockers, j * 8 + i)) break;
-    }
-
-    for (int i = file - 1, j = rank - 1; i >= 0 && j >= 0; --i, --j) {
-        set_bit(&attacks, j * 8 + i);
-        if (check_bit(blockers, j * 8 + i)) break;
-    }
-
-    for (int i = file - 1, j = rank + 1; i >= 0 && j < 8; --i, ++j) {
-        set_bit(&attacks, j * 8 + i);
-        if (check_bit(blockers, j * 8 + i)) break;
-    }
-
-    return attacks;
-}
-
-void init_bishop_attack_table(void)
-{
-    for (int i = 0; i < 64; ++i) {
-        int n = 1 << (64 - bishop_shifts[i]);
-        bishop_attack_table[i] = malloc(n * sizeof(bitboard));
-        bitboard blockers[n];
-        bitboard temp = 0ULL;
-
-        for (int j = 0; j < n; ++j) {
-            bool fail = true;
-            while (fail) {
-                fail = false;
-                blockers[j] = apply_masks(rand_bitboard(&temp, 32), 1, bishop_masks[i]);
-                temp = 0ULL;
-                for (int k = 0; k < j; ++k) {
-                    if (blockers[j] == blockers[k]) {
-                        fail = true;
-                        break;
-                    }
-                }
-            }
-
-            int index = bishop_hash(blockers[j], bishop_shifts[i]);
-            bishop_attack_table[i][index] = get_bishop_attacks_slow(blockers[j], i);
-        }
-    }
-}
-
-bitboard *bishop_attack_table[64];
-
-const bitboard bishop_masks[64] = {
-    0x0902000400004902ULL, 0x2000044000000010ULL,
-    0x0800031508000400ULL, 0x200000000a002300ULL,
-    0x4600024018000102ULL, 0x1000004040480100ULL,
-    0x0000010a20103000ULL, 0x010100002a440008ULL,
-    0x084c480040000290ULL, 0x000e001102441a24ULL,
-    0x2100100000000000ULL, 0x4000188020200004ULL,
-    0x0020012004020500ULL, 0x4080608100020620ULL,
-    0x0011224000000000ULL, 0x6002020300020200ULL,
-    0x4200080040000400ULL, 0x0000000110090000ULL,
-    0x0010403848000000ULL, 0x0000110040202410ULL,
-    0x020020c000804d04ULL, 0x0034000024062000ULL,
-    0x4404000004010020ULL, 0x0000308000000010ULL,
-    0x0002004000000108ULL, 0x2421010000100144ULL,
-    0x0046010802205080ULL, 0x0010000440600000ULL,
-    0x0048004053030280ULL, 0x2302200020040008ULL,
-    0x1000102000842284ULL, 0x0002000020081014ULL,
-    0x10d8000040160000ULL, 0x0608002205105001ULL,
-    0x1000000040000108ULL, 0x4020480120800000ULL,
-    0x022028005c040840ULL, 0x0000000070204041ULL,
-    0x000000060b884064ULL, 0x00010000011008a6ULL,
-    0x2080044500080024ULL, 0x4000000250001040ULL,
-    0x0002004802830000ULL, 0x05000000000a00a0ULL,
-    0x0180000002000000ULL, 0x0474302641000600ULL,
-    0x2000020000004840ULL, 0x2012400400000000ULL,
-    0x0402400120410000ULL, 0x0700001800002804ULL,
-    0x0000240000000083ULL, 0x0840212100400000ULL,
-    0x408808020012008aULL, 0x088821dc00000800ULL,
-    0x0510000000200c01ULL, 0x0c0000c002200420ULL,
-    0x0825008020810450ULL, 0x2400209400021100ULL,
-    0x00000200000c0040ULL, 0x20011403200005a2ULL,
-    0x0000040200010200ULL, 0x0004000428010001ULL,
-    0x2005080440001400ULL, 0x0080401a00160d00ULL
-};
-
-const bitboard bishop_magic[64] = {
-    0x1010002805000084ULL, 0x0000100410806020ULL,
-    0x0001480214080102ULL, 0x0240080805020103ULL,
-    0x0000190000840900ULL, 0x0810018200024020ULL,
-    0x2090404220000000ULL, 0x0a40009248800802ULL,
-    0x00814040400000c1ULL, 0x000005c442800100ULL,
-    0x0010000100000010ULL, 0x0014020806001050ULL,
-    0x0410000000000129ULL, 0x0000161010422000ULL,
-    0x02001080049020acULL, 0x0148400006004800ULL,
-    0x4098080002400000ULL, 0x4400108040000c02ULL,
-    0x0008000000030024ULL, 0x22900000102a0000ULL,
-    0x0000440032000000ULL, 0x0000090102000004ULL,
-    0x0240400120100000ULL, 0x404040a00b900880ULL,
-    0x0003200000012000ULL, 0x1020140048a80000ULL,
-    0x200200d400400002ULL, 0x0000481120044080ULL,
-    0x2004459001081040ULL, 0x2058220020000202ULL,
-    0x2000000800040200ULL, 0x0c00020200000001ULL,
-    0x110c000001080041ULL, 0x0260000701800000ULL,
-    0x0001204108001051ULL, 0x021c000000080801ULL,
-    0x0400090000050000ULL, 0x0900010140344800ULL,
-    0x1000212806000200ULL, 0x0421000204280408ULL,
-    0x088200a000002300ULL, 0x00a0000130101000ULL,
-    0x0000001200200028ULL, 0x1195482000000008ULL,
-    0x070a020206060804ULL, 0x00a4000000000000ULL,
-    0x0340000000200019ULL, 0x2041048007004410ULL,
-    0x0201000061044a00ULL, 0x0034000120001100ULL,
-    0x0100000030080090ULL, 0x0008040000204001ULL,
-    0x0810000040000801ULL, 0x2001000205106040ULL,
-    0x4080210004002420ULL, 0x0901441504121100ULL,
-    0x0000000008010008ULL, 0x0100006000222400ULL,
-    0x0085000860400610ULL, 0x0000400800000000ULL,
-    0x2480000008020120ULL, 0x400000000005100cULL,
-    0x300140080c210002ULL, 0x20220540102d0c20ULL
-};
-
-const int bishop_shifts[64] = {
-    58, 59, 59, 59, 59, 59, 59, 58,
-    59, 59, 59, 59, 59, 59, 59, 59,
-    59, 59, 57, 57, 57, 57, 59, 59,
-    59, 59, 57, 55, 55, 57, 59, 59,
-    59, 59, 57, 55, 55, 57, 59, 59,
-    59, 59, 57, 57, 57, 57, 59, 59,
-    59, 59, 59, 59, 59, 59, 59, 59,
-    58, 59, 59, 59, 59, 59, 59, 58
-};
-
-bitboard *rook_attack_table[64];
-const bitboard rook_masks[64];
-const bitboard rook_magic[64];
-const int rook_shifts[64];
-
-int bishop_hash(bitboard blockers, int pos)
-{
-    return apply_masks(blockers, 1, bishop_masks[pos]) * bishop_magic[pos] >> bishop_shifts[pos];
-}
-
-int rook_hash(bitboard blockers, int pos)
-{
-    return 0;
 }

@@ -54,7 +54,7 @@ bitboard find_magic(bitboard mask, int relevant_bits, int pos)
 int main(void)
 {
     srand(time(0));
-    init_bishop_attack_table();
+    /*init_bishop_attack_table();
     init_rook_attack_table();
     board b = rand_board();
     draw_board(b);
@@ -63,11 +63,11 @@ int main(void)
     white_moves.count = 0;
     move_list black_moves;
     black_moves.count = 0;
-    get_white_king_moves(b, &white_moves);
-    get_black_king_moves(b, &black_moves);
+    get_white_moves(b, &white_moves);
+    get_black_moves(b, &black_moves);
     display_moves(white_moves);
     printf("---------------------------\n");
-    display_moves(black_moves);
+    display_moves(black_moves);*/
 
     /*
     printf("WHITE KING\n");
@@ -127,5 +127,22 @@ int main(void)
         }
         printf("\n");
     }*/
+
+    for (int i = 0; i < 16; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            printf("0x%016llxULL, ", get_bishop_attacks_slow(0ULL, i * 4 + j));
+        }
+        printf("\n");
+    }
+
+    printf("\n");
+
+    for (int i = 0; i < 16; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            printf("0x%016llxULL, ", get_rook_attacks_slow(0ULL, i * 4 + j));
+        }
+        printf("\n");
+    }
+
     return 0;
 }

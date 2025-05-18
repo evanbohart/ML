@@ -8,10 +8,10 @@ bitboard get_blockers(bitboard mask, int x)
 
     for (int i = 0; i < n; ++i) {
         int bit = __builtin_ctzll(mask);
-        clear_bit(&mask, bit);
+        clear_bit(mask, bit);
 
         if (x & (1 << i)) {
-            set_bit(&blockers, bit);
+            set_bit(blockers, bit);
         }
     }
 
@@ -77,22 +77,22 @@ bitboard get_bishop_attacks_slow(bitboard blockers, int pos)
     int rank = pos / 8;
 
     for (int i = file + 1, j = rank + 1; i < 8 && j < 8; ++i, ++j) {
-        set_bit(&attacks, j * 8 + i);
+        set_bit(attacks, j * 8 + i);
         if (check_bit(blockers, j * 8 + i)) break;
     }
 
     for (int i = file + 1, j = rank - 1; i < 8 && j >= 0; ++i, --j) {
-        set_bit(&attacks, j * 8 + i);
+        set_bit(attacks, j * 8 + i);
         if (check_bit(blockers, j * 8 + i)) break;
     }
 
     for (int i = file - 1, j = rank - 1; i >= 0 && j >= 0; --i, --j) {
-        set_bit(&attacks, j * 8 + i);
+        set_bit(attacks, j * 8 + i);
         if (check_bit(blockers, j * 8 + i)) break;
     }
 
     for (int i = file - 1, j = rank + 1; i >= 0 && j < 8; --i, ++j) {
-        set_bit(&attacks, j * 8 + i);
+        set_bit(attacks, j * 8 + i);
         if (check_bit(blockers, j * 8 + i)) break;
     }
 
@@ -177,22 +177,22 @@ bitboard get_rook_attacks_slow(bitboard blockers, int pos)
     int rank = pos / 8;
 
     for (int i = file + 1; i < 8; ++i) {
-        set_bit(&attacks, rank * 8 + i);
+        set_bit(attacks, rank * 8 + i);
         if (check_bit(blockers, rank * 8 + i)) break;
     }
 
     for (int i = file - 1; i >= 0; --i) {
-        set_bit(&attacks, rank * 8 + i);
+        set_bit(attacks, rank * 8 + i);
         if (check_bit(blockers, rank * 8 + i)) break;
     }
 
     for (int i = rank + 1; i < 8; ++i) {
-        set_bit(&attacks, i * 8 + file);
+        set_bit(attacks, i * 8 + file);
         if (check_bit(blockers, i * 8 + file)) break;
     }
 
     for (int i = rank - 1; i >= 0; --i) {
-        set_bit(&attacks, i * 8 + file);
+        set_bit(attacks, i * 8 + file);
         if (check_bit(blockers, i * 8 + file)) break;
     }
 

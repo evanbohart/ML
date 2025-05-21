@@ -21,38 +21,36 @@ void draw_bitboard(bitboard b)
 board init_board(void)
 {
     board b;
-    b.white_pieces[KING] = STARTING_WHITE_KING;
-    b.white_pieces[PAWN] = STARTING_WHITE_PAWNS;
-    b.white_pieces[KNIGHT] = STARTING_WHITE_KNIGHTS;
-    b.white_pieces[BISHOP] = STARTING_WHITE_BISHOPS;
-    b.white_pieces[ROOK] = STARTING_WHITE_ROOKS;
-    b.white_pieces[QUEEN] = STARTING_WHITE_QUEENS;
-    b.black_pieces[KING] = STARTING_BLACK_KING;
-    b.black_pieces[PAWN] = STARTING_BLACK_PAWNS;
-    b.black_pieces[KNIGHT] = STARTING_BLACK_KNIGHTS;
-    b.black_pieces[BISHOP] = STARTING_BLACK_BISHOPS;
-    b.black_pieces[ROOK] = STARTING_BLACK_ROOKS;
-    b.black_pieces[QUEEN] = STARTING_BLACK_QUEENS;
 
-    b.white_pieces_all = b.white_pieces[KING] | b.white_pieces[PAWN] | b.white_pieces[KNIGHT] |
-                     b.white_pieces[BISHOP] | b.white_pieces[ROOK] | b.white_pieces[QUEEN];
-    b.black_pieces_all = b.black_pieces[KING] | b.black_pieces[PAWN] | b.black_pieces[KNIGHT] |
-                     b.black_pieces[BISHOP] | b.black_pieces[ROOK] | b.black_pieces[QUEEN];
+    b.pieces[WHITE][KING] = STARTING_WHITE_KING;
+    b.pieces[WHITE][PAWN] = STARTING_WHITE_PAWNS;
+    b.pieces[WHITE][KNIGHT] = STARTING_WHITE_KNIGHTS;
+    b.pieces[WHITE][BISHOP] = STARTING_WHITE_BISHOPS;
+    b.pieces[WHITE][ROOK] = STARTING_WHITE_ROOKS;
+    b.pieces[WHITE][QUEEN] = STARTING_WHITE_QUEENS;
+    b.pieces[BLACK][KING] = STARTING_BLACK_KING;
+    b.pieces[BLACK][PAWN] = STARTING_BLACK_PAWNS;
+    b.pieces[BLACK][KNIGHT] = STARTING_BLACK_KNIGHTS;
+    b.pieces[BLACK][BISHOP] = STARTING_BLACK_BISHOPS;
+    b.pieces[BLACK][ROOK] = STARTING_BLACK_ROOKS;
+    b.pieces[BLACK][QUEEN] = STARTING_BLACK_QUEENS;
 
-    b.pieces_all = b.white_pieces_all | b.black_pieces_all;
+    b.pieces_all[WHITE] = b.pieces[WHITE][KING] | b.pieces[WHITE][PAWN] | b.pieces[WHITE][KNIGHT] |
+                          b.pieces[WHITE][BISHOP] | b.pieces[WHITE][ROOK] | b.pieces[WHITE][QUEEN];
+    b.pieces_all[BLACK] = b.pieces[BLACK][KING] | b.pieces[BLACK][PAWN] | b.pieces[BLACK][KNIGHT] |
+                          b.pieces[BLACK][BISHOP] | b.pieces[BLACK][ROOK] | b.pieces[BLACK][QUEEN];
 
-    b.white_pins_vertical = 0ULL;
-    b.black_pins_vertical = 0ULL;
-    b.white_pins_horizontal = 0ULL;
-    b.black_pins_horizontal = 0ULL;
-    b.white_pins_diagonal1 = 0ULL;
-    b.black_pins_diagonal1 = 0ULL;
-    b.white_pins_diagonal2 = 0ULL;
-    b.black_pins_diagonal2 = 0ULL;
+    b.pins_vertical[WHITE] = 0ULL;
+    b.pins_horizontal[WHITE] = 0ULL;
+    b.pins_diagonal1[WHITE] = 0ULL;
+    b.pins_diagonal2[WHITE] = 0ULL;
+    b.pins_vertical[BLACK] = 0ULL;
+    b.pins_horizontal[BLACK] = 0ULL;
+    b.pins_diagonal1[BLACK] = 0ULL;
+    b.pins_diagonal2[BLACK] = 0ULL;
 
     init_piece_lookup(b.piece_lookup);
 
-    clear_moves(b.legal_moves);
     clear_moves(b.legal_moves);
 
     return b;
@@ -91,7 +89,7 @@ void init_piece_lookup(piece *piece_lookup)
     piece_lookup[63] = ROOK;
 }
 
-void apply_move_white(board *b, move m)
+void apply_move(board *b, color c, move m)
 {
     int from = move_from(m);
     int to = move_to(m);
@@ -100,83 +98,37 @@ void apply_move_white(board *b, move m)
     if (flag == CAPTURE) {
         piece captured_piece = b->piece_lookup[to];
 
-        clear_bit(b->black_pieces[captured_piece], to);
-        clear_bit(b->black_pieces_all, to);
-        clear_bit(b->pieces_all, to);
+        clear_bit(b->pieces[c][captured_piece], to);
+        clear_bit(b->pieces_all[c], to);
     }
 
     piece moving_piece = b->piece_lookup[from];
 
-    clear_bit(b->white_pieces[moving_piece], from);
-    clear_bit(b->white_pieces_all, from);
-    clear_bit(b->pieces_all, from);
+    clear_bit(b->pieces[c][moving_piece], from);
+    clear_bit(b->pieces_all[c], from);
     b->piece_lookup[from] = NONE;
 
-    set_bit(b->white_pieces[moving_piece], to);
-    set_bit(b->white_pieces_all, to);
-    set_bit(b->pieces_all, to);
+    set_bit(b->pieces[c][moving_piece], to);
+    set_bit(b->pieces_all[c], to);
     b->piece_lookup[to] = moving_piece;
 }
 
-void apply_move_black(board *b, move m)
+void update_board(board *b, color c)
 {
-    int from = move_from(m);
-    int to = move_to(m);
-    int flag = move_flag(m);
-
-    if (flag == CAPTURE) {
-        piece captured_piece = b->piece_lookup[to];
-
-        clear_bit(b->white_pieces[captured_piece], to);
-        clear_bit(b->white_pieces_all, to);
-        clear_bit(b->pieces_all, to);
-    }
-
-    piece moving_piece = b->piece_lookup[from];
-
-    clear_bit(b->black_pieces[moving_piece], from);
-    clear_bit(b->black_pieces_all, from);
-    clear_bit(b->pieces_all, from);
-    b->piece_lookup[from] = NONE;
-
-    set_bit(b->black_pieces[moving_piece], to);
-    set_bit(b->black_pieces_all, to);
-    set_bit(b->pieces_all, to);
-    b->piece_lookup[to] = moving_piece;
+    get_attacks(b, c);
+    get_attacks(b, !c);
+    get_pins(b, c);
+    get_legal_moves(b, c);
 }
 
-void update_board_white(board *b)
+bool check(board *b, color c)
 {
-    get_black_attacks(b);
-    get_white_pins(b);
-    get_white_moves(b);
+    return b->pieces[c][KING] & b->attacks_all[!c];
 }
 
-void update_board_black(board *b)
+bool checkmate(board *b, color c)
 {
-    get_white_attacks(b);
-    get_black_pins(b);
-    get_black_moves(b);
-}
-
-bool white_check(board *b)
-{
-    return b->white_pieces[KING] & b->black_attacks_all;
-}
-
-bool black_check(board *b)
-{
-    return b->black_pieces[KING] & b->white_attacks_all;
-}
-
-bool white_checkmate(board *b)
-{
-    return white_check(b) && b->legal_moves.count == 0;
-}
-
-bool black_checkmate(board *b)
-{
-    return black_check(b) && b->legal_moves.count == 0;
+    return check(b, c) && b->legal_moves.count == 0;
 }
 
 void draw_board(board *b)
@@ -194,7 +146,7 @@ void draw_board(board *b)
             if (piece_index == NONE) {
                 piece = '.';
             }
-            else if (check_bit(b->white_pieces_all, pos)) {
+            else if (check_bit(b->pieces_all[WHITE], pos)) {
                 piece = toupper(piece_chars[piece_index]);
             }
             else {

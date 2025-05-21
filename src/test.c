@@ -152,7 +152,7 @@ int main(void)
     board b = init_board();
 
     while (true) {
-        update_board_white(&b);
+        update_board(&b, WHITE);
         bool found = false;
         while (!found) {
             draw_board(&b);
@@ -160,7 +160,7 @@ int main(void)
 
             for (int i = 0; i < b.legal_moves.count; ++i) {
                 if (white_move == b.legal_moves.moves[i]) {
-                    apply_move_white(&b, white_move);
+                    apply_move(&b, WHITE, white_move);
                     found = true;
                     break;
                 }
@@ -169,7 +169,7 @@ int main(void)
             if (!found) printf("Illegal move.\n");
         }
 
-        update_board_black(&b);
+        update_board(&b, BLACK);
         found = false;
         while (!found) {
             draw_board(&b);
@@ -177,7 +177,7 @@ int main(void)
 
             for (int i = 0; i < b.legal_moves.count; ++i) {
                 if (black_move == b.legal_moves.moves[i]) {
-                    apply_move_black(&b, black_move);
+                    apply_move(&b, BLACK, black_move);
                     found = true;
                     break;
                 }

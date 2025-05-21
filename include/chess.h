@@ -7,6 +7,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
 typedef enum col { A, B, C, D, E, F, G, H } col;
 
@@ -46,10 +47,10 @@ void draw_bitboard(bitboard b);
 #define set_bits(b, bits) ((b) |= (bits))
 #define clear_bit(b, pos) ((b) &= ~(1ULL << (pos)))
 #define clear_bits(b, bits) ((b) &= ~(bits))
-#define check_bit(b, pos) ((b) & (1ULL << (pos)))
-#define check_bits(b, bits) (((b) & (bits)) == (bits))
 #define clear_from(b, pos) ((b) &= ((1ULL << (pos)) - 1))
 #define clear_until(b, pos) ((b) &= ~((1ULL << (pos)) - 1))
+#define check_bit(b, pos) ((b) & (1ULL << (pos)))
+#define check_bits(b, bits) (((b) & (bits)) == (bits))
 
 #define calc_shift(bitboard, x, y) (((x) + 8 * (y) > 0) ? \
                                    (bitboard) << ((x) + 8 * (y)) : \
@@ -74,29 +75,33 @@ typedef struct move_list {
 } move_list;
 
 #define clear_moves(ml) ((ml).count = 0)
-#define add_move(m, ml) ((ml).moves[(ml).count++] = m)
+#define add_move(m, ml) do { \
+                            assert((ml).count != MAX_MOVES); \
+                            (ml).moves[(ml).count++] = m; \
+                        } while (0)
 
 void display_moves(move_list l);
+
+typedef enum color { WHITE, BLACK } color;
 
 typedef enum piece { KING, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, NONE } piece;
 
 typedef struct board {
-    bitboard white_pieces[6], black_pieces[6];
-    bitboard white_pieces_all, black_pieces_all;
-    bitboard pieces_all;
-
-    bitboard white_attacks[6], black_attacks[6];
-    bitboard white_attacks_all, black_attacks_all;
-
-    bitboard white_pins_vertical, black_pins_vertical;
-    bitboard white_pins_horizontal, black_pins_horizontal;
-    bitboard white_pins_diagonal1, black_pins_diagonal1;
-    bitboard white_pins_diagonal2, black_pins_diagonal2;
+    bitboard pieces[2][6];
+    bitboard attacks[2][6];
+    bitboard pieces_all[2];
+    bitboard attacks_all[2];
+    bitboard pins_vertical[2];
+    bitboard pins_horizontal[2];
+    bitboard pins_diagonal1[2];
+    bitboard pins_diagonal2[2];
 
     piece piece_lookup[64];
 
     move_list legal_moves;
 } board;
+
+#define total_occupancy(b) ((b).pieces_all[BLACK] | (b).pieces_all[WHITE])
 
 #define STARTING_WHITE_KING 0x0000000000000010ULL
 #define STARTING_WHITE_PAWNS 0x000000000000ff00ULL
@@ -113,31 +118,19 @@ typedef struct board {
 
 board init_board(void);
 void init_piece_lookup(piece *piece_lookup);
-void apply_move_white(board *b, move m);
-void apply_move_black(board *b, move m);
-void update_board_white(board *b);
-void update_board_black(board *b);
-bool white_check(board *b);
-bool black_check(board *b);
-bool white_checkmate(board *b);
-bool black_checkmate(board *b);
+void apply_move(board *b, color c, move m);
+void update_board(board *b, color c);
+bool check(board *b, color c);
+bool checkmate(board *b, color c);
 void draw_board(board *b);
 
-void get_white_moves(board *b);
-void get_white_king_moves(board *b);
-void get_white_pawn_moves(board *b);
-void get_white_knight_moves(board *b);
-void get_white_bishop_moves(board *b);
-void get_white_queen_moves(board *b);
-void get_white_rook_moves(board *b);
-
-void get_black_moves(board *b);
-void get_black_king_moves(board *b);
-void get_black_pawn_moves(board *b);
-void get_black_knight_moves(board *b);
-void get_black_bishop_moves(board *b);
-void get_black_queen_moves(board *b);
-void get_black_rook_moves(board *b);
+void get_legal_moves(board *b, color c);
+void get_king_moves(board *b, color c);
+void get_pawn_moves(board *b, color c);
+void get_knight_moves(board *b, color c);
+void get_bishop_moves(board *b, color c);
+void get_queen_moves(board *b, color c);
+void get_rook_moves(board *b, color c);
 
 extern bitboard bishop_rays[64][4];
 extern bitboard rook_rays[64][4];
@@ -145,24 +138,11 @@ extern bitboard rook_rays[64][4];
 void init_bishop_rays(void);
 void init_rook_rays(void);
 
-void get_white_pins(board *b);
-void get_black_pins(board *b);
-
-bitboard get_pins_vertical(bitboard king, bitboard attackers, bitboard friendly, bitboard all_pieces);
-bitboard get_pins_horizontal(bitboard king, bitboard attackers, bitboard friendly, bitboard all_pieces);
-bitboard get_pins_diagonal1(bitboard king, bitboard attackers, bitboard friendly, bitboard all_pieces);
-bitboard get_pins_diagonal2(bitboard king, bitboard attackers, bitboard friendly, bitboard all_pieces);
-
-void get_white_attacks(board *b);
-void get_black_attacks(board *b);
-
-bitboard get_king_attacks(bitboard king);
-bitboard get_white_pawn_attacks(bitboard pawns);
-bitboard get_black_pawn_attacks(bitboard pawns);
-bitboard get_knight_attacks(bitboard knights);
-bitboard get_bishop_attacks(bitboard bishops, bitboard all_pieces);
-bitboard get_rook_attacks(bitboard rooks, bitboard all_pieces);
-bitboard get_queen_attacks(bitboard queens, bitboard all_pieces);
+void get_pins(board *b, color c);
+void get_pins_vertical(board *b, color c);
+void get_pins_horizontal(board *b, color c);
+void get_pins_diagonal1(board *b, color c);
+void get_pins_diagonal2(board *b, color c);
 
 extern bitboard *bishop_attack_table[64];
 
@@ -188,6 +168,14 @@ int bishop_hash(bitboard blockers, int pos);
 int rook_hash(bitboard blockers, int pos);
 
 bitboard get_blockers(bitboard mask, int x);
+
+void get_attacks(board *b, color c);
+void get_king_attacks(board *b, color c);
+void get_pawn_attacks(board *b, color c);
+void get_knight_attacks(board *b, color c);
+void get_bishop_attacks(board *b, color c);
+void get_rook_attacks(board *b, color c);
+void get_queen_attacks(board *b, color c);
 
 #ifdef __cplusplus
 }

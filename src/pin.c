@@ -1,39 +1,246 @@
 #include "chess.h"
 
-const bitboard bishop_rays[64] = {
-    0x8040201008040200ULL, 0x0080402010080500ULL, 0x0000804020110a00ULL, 0x0000008041221400ULL,
-    0x0000000182442800ULL, 0x0000010204885000ULL, 0x000102040810a000ULL, 0x0102040810204000ULL,
-    0x4020100804020002ULL, 0x8040201008050005ULL, 0x00804020110a000aULL, 0x0000804122140014ULL,
-    0x0000018244280028ULL, 0x0001020488500050ULL, 0x0102040810a000a0ULL, 0x0204081020400040ULL,
-    0x2010080402000204ULL, 0x4020100805000508ULL, 0x804020110a000a11ULL, 0x0080412214001422ULL,
-    0x0001824428002844ULL, 0x0102048850005088ULL, 0x02040810a000a010ULL, 0x0408102040004020ULL,
-    0x1008040200020408ULL, 0x2010080500050810ULL, 0x4020110a000a1120ULL, 0x8041221400142241ULL,
-    0x0182442800284482ULL, 0x0204885000508804ULL, 0x040810a000a01008ULL, 0x0810204000402010ULL,
-    0x0804020002040810ULL, 0x1008050005081020ULL, 0x20110a000a112040ULL, 0x4122140014224180ULL,
-    0x8244280028448201ULL, 0x0488500050880402ULL, 0x0810a000a0100804ULL, 0x1020400040201008ULL,
-    0x0402000204081020ULL, 0x0805000508102040ULL, 0x110a000a11204080ULL, 0x2214001422418000ULL,
-    0x4428002844820100ULL, 0x8850005088040201ULL, 0x10a000a010080402ULL, 0x2040004020100804ULL,
-    0x0200020408102040ULL, 0x0500050810204080ULL, 0x0a000a1120408000ULL, 0x1400142241800000ULL,
-    0x2800284482010000ULL, 0x5000508804020100ULL, 0xa000a01008040201ULL, 0x4000402010080402ULL,
-    0x0002040810204080ULL, 0x0005081020408000ULL, 0x000a112040800000ULL, 0x0014224180000000ULL,
-    0x0028448201000000ULL, 0x0050880402010000ULL, 0x00a0100804020100ULL, 0x0040201008040201ULL
-};
+bitboard bishop_rays[64][4];
+bitboard rook_rays[64][4];
 
-const bitboard rook_rays[64] = {
-    0x01010101010101feULL, 0x02020202020202fdULL, 0x04040404040404fbULL, 0x08080808080808f7ULL,
-    0x10101010101010efULL, 0x20202020202020dfULL, 0x40404040404040bfULL, 0x808080808080807fULL,
-    0x010101010101fe01ULL, 0x020202020202fd02ULL, 0x040404040404fb04ULL, 0x080808080808f708ULL,
-    0x101010101010ef10ULL, 0x202020202020df20ULL, 0x404040404040bf40ULL, 0x8080808080807f80ULL,
-    0x0101010101fe0101ULL, 0x0202020202fd0202ULL, 0x0404040404fb0404ULL, 0x0808080808f70808ULL,
-    0x1010101010ef1010ULL, 0x2020202020df2020ULL, 0x4040404040bf4040ULL, 0x80808080807f8080ULL,
-    0x01010101fe010101ULL, 0x02020202fd020202ULL, 0x04040404fb040404ULL, 0x08080808f7080808ULL,
-    0x10101010ef101010ULL, 0x20202020df202020ULL, 0x40404040bf404040ULL, 0x808080807f808080ULL,
-    0x010101fe01010101ULL, 0x020202fd02020202ULL, 0x040404fb04040404ULL, 0x080808f708080808ULL,
-    0x101010ef10101010ULL, 0x202020df20202020ULL, 0x404040bf40404040ULL, 0x8080807f80808080ULL,
-    0x0101fe0101010101ULL, 0x0202fd0202020202ULL, 0x0404fb0404040404ULL, 0x0808f70808080808ULL,
-    0x1010ef1010101010ULL, 0x2020df2020202020ULL, 0x4040bf4040404040ULL, 0x80807f8080808080ULL,
-    0x01fe010101010101ULL, 0x02fd020202020202ULL, 0x04fb040404040404ULL, 0x08f7080808080808ULL,
-    0x10ef101010101010ULL, 0x20df202020202020ULL, 0x40bf404040404040ULL, 0x807f808080808080ULL,
-    0xfe01010101010101ULL, 0xfd02020202020202ULL, 0xfb04040404040404ULL, 0xf708080808080808ULL,
-    0xef10101010101010ULL, 0xdf20202020202020ULL, 0xbf40404040404040ULL, 0x7f80808080808080ULL
-};
+void init_bishop_rays(void)
+{
+    for (int i = 0; i < 64; ++i) {
+        bitboard blockers_nw = 0ULL;
+        bitboard blockers_ne = 0ULL;
+        bitboard blockers_se = 0ULL;
+        bitboard blockers_sw = 0ULL;
+
+        int file = i % 8;
+        int rank = i / 8;
+
+        if (file - 1 >= 0 && rank - 1 >= 0) {
+            set_bit(blockers_nw, i - 9);
+            set_bit(blockers_ne, i - 9);
+            set_bit(blockers_se, i - 9);
+        }
+
+        if (file - 1 < 8 && rank - 1 >= 0) {
+            set_bit(blockers_nw, i - 7);
+            set_bit(blockers_ne, i - 7);
+            set_bit(blockers_sw, i - 7);
+        }
+
+        if (file - 1 < 8 && rank - 1 < 8) {
+            set_bit(blockers_nw, i + 9);
+            set_bit(blockers_se, i + 9);
+            set_bit(blockers_sw, i + 9);
+        }
+
+        if (file - 1 >= 0 && rank - 1 < 8) {
+            set_bit(blockers_ne, i + 7);
+            set_bit(blockers_se, i + 7);
+            set_bit(blockers_sw, i + 7);
+        }
+
+        bishop_rays[i][0] = get_bishop_attacks_slow(blockers_nw, i) & ~blockers_nw;
+        bishop_rays[i][1] = get_bishop_attacks_slow(blockers_ne, i) & ~blockers_ne;
+        bishop_rays[i][2] = get_bishop_attacks_slow(blockers_se, i) & ~blockers_se;
+        bishop_rays[i][3] = get_bishop_attacks_slow(blockers_sw, i) & ~blockers_sw;
+    }
+}
+
+void init_rook_rays(void)
+{
+    for (int i = 0; i < 64; ++i) {
+        bitboard blockers_up = 0ULL;
+        bitboard blockers_down = 0ULL;
+        bitboard blockers_left = 0ULL;
+        bitboard blockers_right = 0ULL;
+
+        int file = i % 8;
+        int rank = i / 8;
+
+        if (file - 1 >= 0) {
+            set_bit(blockers_up, i - 1);
+            set_bit(blockers_down, i - 1);
+            set_bit(blockers_right, i - 1);
+        }
+
+        if (file - 1 < 8) {
+            set_bit(blockers_up, i + 1);
+            set_bit(blockers_down, i + 1);
+            set_bit(blockers_left, i + 1);
+        }
+
+        if (rank - 1 >= 0) {
+            set_bit(blockers_up, i - 8);
+            set_bit(blockers_left, i - 8);
+            set_bit(blockers_right, i - 8);
+        }
+
+        if (rank - 1 < 8) {
+            set_bit(blockers_down, i + 8);
+            set_bit(blockers_left, i + 8);
+            set_bit(blockers_right, i + 8);
+        }
+
+        rook_rays[i][0] = get_rook_attacks_slow(blockers_up, i) & ~blockers_up;
+        rook_rays[i][1] = get_rook_attacks_slow(blockers_down, i) & ~blockers_down;
+        rook_rays[i][2] = get_rook_attacks_slow(blockers_left, i) & ~blockers_left;
+        rook_rays[i][3] = get_rook_attacks_slow(blockers_right, i) & ~blockers_right;
+    }
+}
+
+void get_white_pins(board *b)
+{
+    bitboard orthogonal_attackers = b->black_pieces[ROOK] | b->black_pieces[QUEEN];
+    bitboard diagonal_attackers = b->black_pieces[BISHOP] | b->black_pieces[QUEEN];
+
+    b->white_pins_vertical = get_pins_vertical(b->white_pieces[KING], orthogonal_attackers,
+                                               b->white_pieces_all, b->pieces_all);
+    b->white_pins_horizontal = get_pins_horizontal(b->white_pieces[KING], orthogonal_attackers,
+                                                   b->white_pieces_all, b->pieces_all);
+    b->white_pins_diagonal1 = get_pins_diagonal1(b->white_pieces[KING], diagonal_attackers,
+                                                 b->white_pieces_all, b->pieces_all);
+    b->white_pins_diagonal2 = get_pins_diagonal2(b->white_pieces[KING], diagonal_attackers,
+                                                 b->white_pieces_all, b->pieces_all);
+}
+
+void get_black_pins(board *b)
+{
+    bitboard orthogonal_attackers = b->white_pieces[ROOK] | b->white_pieces[QUEEN];
+    bitboard diagonal_attackers = b->white_pieces[BISHOP] | b->white_pieces[QUEEN];
+
+    b->black_pins_vertical = get_pins_vertical(b->black_pieces[KING], orthogonal_attackers,
+                                               b->black_pieces_all, b->pieces_all);
+    b->black_pins_horizontal = get_pins_horizontal(b->black_pieces[KING], orthogonal_attackers,
+                                                   b->black_pieces_all, b->pieces_all);
+    b->black_pins_diagonal1 = get_pins_diagonal1(b->black_pieces[KING], diagonal_attackers,
+                                                 b->black_pieces_all, b->pieces_all);
+    b->black_pins_diagonal2 = get_pins_diagonal2(b->black_pieces[KING], diagonal_attackers,
+                                                 b->black_pieces_all, b->pieces_all);
+}
+
+bitboard get_pins_vertical(bitboard king, bitboard attackers, bitboard friendly, bitboard pieces_all)
+{
+    bitboard pins = 0ULL;
+
+    int king_pos = ctz(king);
+
+    bitboard ray_up = rook_rays[king_pos][0];
+    bitboard ray_down = rook_rays[king_pos][1];
+    bitboard attackers_up = attackers & ray_up;
+    bitboard attackers_down = attackers & ray_down;
+
+    if (attackers_up) {
+        int attacker_pos = ctz(attackers_up);
+        bitboard pieces_between = pieces_all & ray_up & ((1ULL << attacker_pos) - 1);
+
+        if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
+            set_bits(pins, pieces_between);
+        }
+    }
+
+    if (attackers_down) {
+        int attacker_pos = 63 - clz(attackers_down);
+        bitboard pieces_between = pieces_all & ray_down & ~((1ULL << attacker_pos) - 1);
+
+        if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
+            set_bits(pins, pieces_between);
+        }
+    }
+
+    return pins;
+}
+
+bitboard get_pins_horizontal(bitboard king, bitboard attackers, bitboard friendly, bitboard pieces_all)
+{
+    bitboard pins = 0ULL;
+
+    int king_pos = ctz(king);
+
+    bitboard ray_left = rook_rays[king_pos][2];
+    bitboard ray_right = rook_rays[king_pos][3];
+    bitboard attackers_left = attackers & ray_left;
+    bitboard attackers_right = attackers & ray_right;
+
+    if (attackers_left) {
+        int attacker_pos = 63 - clz(attackers_left);
+        bitboard pieces_between = pieces_all & ray_left & ~((1ULL << attacker_pos) - 1);
+
+        if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
+            set_bits(pins, pieces_between);
+        }
+    }
+
+    if (attackers_right) {
+        int attacker_pos = ctz(attackers_right);
+        bitboard pieces_between = pieces_all & ray_right & ((1ULL << attacker_pos) - 1);
+
+        if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
+            set_bits(pins, pieces_between);
+        }
+    }
+
+    return pins;
+}
+
+bitboard get_pins_diagonal1(bitboard king, bitboard attackers, bitboard friendly, bitboard pieces_all)
+{
+    bitboard pins = 0ULL;
+
+    int king_pos = ctz(king);
+
+    bitboard ray_nw = bishop_rays[king_pos][0];
+    bitboard ray_sw = bishop_rays[king_pos][3];
+    bitboard attackers_nw = attackers & ray_nw;
+    bitboard attackers_sw = attackers & ray_sw;
+
+    if (attackers_nw) {
+        int attacker_pos = ctz(attackers_nw);
+        bitboard pieces_between = pieces_all & ray_nw & ((1ULL << attacker_pos) - 1);
+
+        if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
+            set_bits(pins, pieces_between);
+        }
+    }
+
+    if (attackers_sw) {
+        int attacker_pos = 63 - clz(attackers_sw);
+        bitboard pieces_between = pieces_all & ray_sw & ~((1ULL << attacker_pos) - 1);
+
+        if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
+            set_bits(pins, pieces_between);
+        }
+    }
+
+    return pins;
+}
+
+bitboard get_pins_diagonal2(bitboard king, bitboard attackers, bitboard friendly, bitboard pieces_all)
+{
+    bitboard pins = 0ULL;
+
+    int king_pos = ctz(king);
+
+    bitboard ray_ne = bishop_rays[king_pos][1];
+    bitboard ray_se = bishop_rays[king_pos][2];
+    bitboard attackers_ne = attackers & ray_ne;
+    bitboard attackers_se = attackers & ray_se;
+
+    if (attackers_ne) {
+        int attacker_pos = ctz(attackers_ne);
+        bitboard pieces_between = pieces_all & ray_ne & ((1ULL << attacker_pos) - 1);
+
+        if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
+            set_bits(pins, pieces_between);
+        }
+    }
+
+    if (attackers_se) {
+        int attacker_pos = 63 - clz(attackers_se);
+        bitboard pieces_between = pieces_all & ray_se & ~((1ULL << attacker_pos) - 1);
+
+        if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
+            set_bits(pins, pieces_between);
+        }
+    }
+
+    return pins;
+}

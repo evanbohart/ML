@@ -2,18 +2,6 @@
 #include <assert.h>
 #include "chess.h"
 
-void clear_moves(move_list *l)
-{
-    l->count = 0;
-}
-
-void add_move(move m, move_list *l)
-{
-    assert(l->count != MAX_MOVES);
-
-    l->moves[l->count++] = m;
-}
-
 void display_moves(move_list l)
 {
     for (int i = 0; i < l.count; ++i) {
@@ -35,461 +23,474 @@ void display_moves(move_list l)
     }
 }
 
-void get_white_moves(board b, move_list *l)
+void get_white_moves(board *b)
 {
-    clear_moves(l);
+    clear_moves(b->legal_moves);
 
-    get_white_king_moves(b, l);
-    get_white_pawn_moves(b, l);
-    get_white_knight_moves(b, l);
-    get_white_bishop_moves(b, l);
-    get_white_rook_moves(b, l);
-    get_white_queen_moves(b, l);
+    get_white_king_moves(b);
+    get_white_pawn_moves(b);
+    get_white_knight_moves(b);
+    get_white_bishop_moves(b);
+    get_white_rook_moves(b);
+    get_white_queen_moves(b);
 }
 
-void get_black_moves(board b, move_list *l)
+void get_black_moves(board *b)
 {
-    clear_moves(l);
+    clear_moves(b->legal_moves);
 
-    get_black_king_moves(b, l);
-    get_black_pawn_moves(b, l);
-    get_black_knight_moves(b, l);
-    get_black_bishop_moves(b, l);
-    get_black_rook_moves(b, l);
-    get_black_queen_moves(b, l);
+    get_black_king_moves(b);
+    get_black_pawn_moves(b);
+    get_black_knight_moves(b);
+    get_black_bishop_moves(b);
+    get_black_rook_moves(b);
+    get_black_queen_moves(b);
 }
 
-void get_white_king_moves(board b, move_list *l)
+void get_white_king_moves(board *b)
 {
-    bitboard attacks = get_king_attacks(b.white_king);
-    bitboard non_captures = attacks & ~get_black_attacks(b) & ~(b.white_pieces | b.black_pieces);
-    bitboard captures = attacks & ~get_black_attacks(b) & b.black_pieces;
+    bitboard attacks = get_king_attacks(b->white_pieces[KING]);
+    bitboard non_captures = attacks & ~b->black_attacks_all & ~b->pieces_all;
+    bitboard captures = attacks & ~b->black_attacks_all & b->black_pieces_all;
 
-    int from = __builtin_ctzll(b.white_king);
+    int from = ctz(b->white_pieces[KING]);
 
     while (non_captures) {
-        int to = __builtin_ctzll(non_captures);
+        int to = ctz(non_captures);
         clear_bit(non_captures, to);
 
-        add_move(create_move(from, to, QUIET), l);
+        add_move(create_move(from, to, QUIET), b->legal_moves);
     }
 
     while (captures) {
-        int to = __builtin_ctzll(captures);
+        int to = ctz(captures);
         clear_bit(captures, to);
 
-        add_move(create_move(from, to, CAPTURE), l);
+        add_move(create_move(from, to, CAPTURE), b->legal_moves);
     }
 }
 
-void get_black_king_moves(board b, move_list *l)
+void get_black_king_moves(board *b)
 {
-    bitboard attacks = get_king_attacks(b.black_king);
-    bitboard non_captures = attacks & ~get_white_attacks(b) & ~(b.white_pieces | b.black_pieces);
-    bitboard captures = attacks & ~get_white_attacks(b) & b.white_pieces;
+    bitboard attacks = b->black_attacks[KING];
+    bitboard non_captures = attacks & ~b->white_attacks_all & ~b->pieces_all;
+    bitboard captures = attacks & ~b->white_attacks_all & b->white_pieces_all;
 
-    int from = __builtin_ctzll(b.black_king);
+    int from = ctz(b->black_pieces[KING]);
 
     while (non_captures) {
-        int to = __builtin_ctzll(non_captures);
+        int to = ctz(non_captures);
         clear_bit(non_captures, to);
 
-        add_move(create_move(from, to, QUIET), l);
+        add_move(create_move(from, to, QUIET), b->legal_moves);
     }
 
     while (captures) {
-        int to = __builtin_ctzll(captures);
+        int to = ctz(captures);
         clear_bit(captures, to);
 
-        add_move(create_move(from, to, CAPTURE), l);
+        add_move(create_move(from, to, CAPTURE), b->legal_moves);
     }
 }
 
-void get_white_pawn_moves(board b, move_list *l)
+void get_white_pawn_moves(board *b)
 {
-    bitboard single_pushes = calc_shift(b.white_pawns, 0, 1) & ~(b.white_pieces | b.black_pieces);
-    bitboard double_pushes = apply_masks(calc_shift(single_pushes, 0, 1) &
-                                         ~(b.white_pieces | b.black_pieces), 1, ~MASK_4);
-    bitboard promotions = apply_masks(single_pushes, 1, ~MASK_8);
-    bitboard quiet_pushes = apply_masks(single_pushes, 1, MASK_8);
+    bitboard push_pins = b->white_pins_horizontal | b->white_pins_diagonal1 | b->white_pins_diagonal2;
+    bitboard push_pawns = b->white_pieces[PAWN] & ~push_pins;
+    bitboard single_pushes = calc_shift(push_pawns, 0, 1) & ~b->pieces_all;
+    bitboard double_pushes = calc_shift(single_pushes, 0, 1) & ~b->pieces_all & MASK_4;
+    bitboard promotions = single_pushes & MASK_8;
+    bitboard quiet_pushes = single_pushes & ~MASK_8;
 
     while (quiet_pushes) {
-        int to = __builtin_ctzll(quiet_pushes);
+        int to = ctz(quiet_pushes);
         clear_bit(quiet_pushes, to);
         int from = to - 8;
 
-        add_move(create_move(from, to, QUIET), l);
+        add_move(create_move(from, to, QUIET), b->legal_moves);
     }
 
     while (double_pushes) {
-        int to = __builtin_ctzll(double_pushes);
+        int to = ctz(double_pushes);
         clear_bit(double_pushes, to);
         int from = to - 16;
 
-        add_move(create_move(from, to, DOUBLE_PUSH), l);
+        add_move(create_move(from, to, DOUBLE_PUSH), b->legal_moves);
     }
 
     while (promotions) {
-        int to = __builtin_ctzll(promotions);
+        int to = ctz(promotions);
         clear_bit(promotions, to);
         int from = to - 8;
 
-        add_move(create_move(from, to, PROMO_KNIGHT), l);
-        add_move(create_move(from, to, PROMO_BISHOP), l);
-        add_move(create_move(from, to, PROMO_ROOK), l);
-        add_move(create_move(from, to, PROMO_QUEEN), l);
+        add_move(create_move(from, to, PROMO_KNIGHT), b->legal_moves);
+        add_move(create_move(from, to, PROMO_BISHOP), b->legal_moves);
+        add_move(create_move(from, to, PROMO_ROOK), b->legal_moves);
+        add_move(create_move(from, to, PROMO_QUEEN), b->legal_moves);
     }
 
-    bitboard captures = get_white_pawn_attacks(b.white_pawns) & b.black_pieces;
-    bitboard captures_left = captures & calc_shift(b.white_pawns, -1, 1);
-    bitboard captures_right = captures & calc_shift(b.white_pawns, 1, 1);
-    bitboard promotions_left = apply_masks(captures_left, 1, MASK_8);
-    bitboard promotions_right = apply_masks(captures_right, 1, MASK_8);
-    captures_left = apply_masks(captures_left, 1, ~MASK_8);
-    captures_right = apply_masks(captures_right, 1, ~MASK_8);
+    bitboard capture_pins = b->white_pins_vertical | b->white_pins_horizontal;
+    bitboard capture_pawns = b->white_pieces[PAWN] & ~capture_pins;
+    bitboard potential_captures = b->white_attacks[PAWN] & b->black_pieces_all;
+    bitboard captures_left = potential_captures & calc_shift(capture_pawns & ~b->white_pins_diagonal2, -1, 1);
+    bitboard captures_right = potential_captures & calc_shift(capture_pawns & ~b->white_pins_diagonal1, 1, 1);
+    bitboard promotions_left = captures_left & ~MASK_8;
+    bitboard promotions_right = captures_right & ~MASK_8;
+
+    captures_left &= MASK_8;
+    captures_right &= MASK_8;
 
     while (captures_left) {
-        int to = __builtin_ctzll(captures_left);
+        int to = ctz(captures_left);
         clear_bit(captures_left, to);
         int from = to - 7;
 
-        add_move(create_move(from, to, CAPTURE), l);
+        add_move(create_move(from, to, CAPTURE), b->legal_moves);
     }
 
     while (captures_right) {
-        int to = __builtin_ctzll(captures_right);
+        int to = ctz(captures_right);
         clear_bit(captures_right, to);
         int from = to - 9;
 
-        add_move(create_move(from, to, CAPTURE), l);
+        add_move(create_move(from, to, CAPTURE), b->legal_moves);
     }
 
     while (promotions_left) {
-        int to = __builtin_ctzll(promotions_left);
+        int to = ctz(promotions_left);
         clear_bit(promotions_left, to);
         int from = to - 7;
 
-        add_move(create_move(from, to, PROMO_KNIGHT_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_BISHOP_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_ROOK_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_QUEEN_CAPTURE), l);
+        add_move(create_move(from, to, PROMO_KNIGHT_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_BISHOP_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_ROOK_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_QUEEN_CAPTURE), b->legal_moves);
     }
 
     while (promotions_right) {
-        int to = __builtin_ctzll(promotions_right);
+        int to = ctz(promotions_right);
         clear_bit(promotions_right, to);
         int from = to - 9;
 
-        add_move(create_move(from, to, PROMO_KNIGHT_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_BISHOP_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_ROOK_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_QUEEN_CAPTURE), l);
+        add_move(create_move(from, to, PROMO_KNIGHT_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_BISHOP_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_ROOK_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_QUEEN_CAPTURE), b->legal_moves);
     }
 }
 
-void get_black_pawn_moves(board b, move_list *l)
+void get_black_pawn_moves(board *b)
 {
-    bitboard single_pushes = calc_shift(b.black_pawns, 0, -1) & ~(b.white_pieces | b.black_pieces);
-    bitboard double_pushes = apply_masks(calc_shift(single_pushes, 0, -1) &
-                                         ~(b.white_pieces | b.black_pieces), 1, ~MASK_5);
-    bitboard promotions = apply_masks(single_pushes, 1, ~MASK_1);
-    bitboard quiet_pushes = apply_masks(single_pushes, 1, MASK_1);
+    bitboard push_pins = b->black_pins_horizontal | b->black_pins_diagonal1 | b->black_pins_diagonal2;
+    bitboard push_pawns = b->black_pieces[PAWN] & ~push_pins;
+    bitboard single_pushes = calc_shift(push_pawns, 0, -1) & ~b->pieces_all;
+    bitboard double_pushes = calc_shift(single_pushes, 0, -1) & ~b->pieces_all & MASK_5;
+    bitboard promotions = single_pushes & MASK_1;
+    bitboard quiet_pushes = single_pushes & ~MASK_1;
 
     while (quiet_pushes) {
-        int to = __builtin_ctzll(quiet_pushes);
+        int to = ctz(quiet_pushes);
         clear_bit(quiet_pushes, to);
         int from = to + 8;
 
-        add_move(create_move(from, to, QUIET), l);
+        add_move(create_move(from, to, QUIET), b->legal_moves);
     }
 
     while (double_pushes) {
-        int to = __builtin_ctzll(double_pushes);
+        int to = ctz(double_pushes);
         clear_bit(double_pushes, to);
         int from = to + 16;
 
-        add_move(create_move(from, to, DOUBLE_PUSH), l);
+        add_move(create_move(from, to, DOUBLE_PUSH), b->legal_moves);
     }
 
     while (promotions) {
-        int to = __builtin_ctzll(promotions);
+        int to = ctz(promotions);
         clear_bit(promotions, to);
         int from = to + 8;
 
-        add_move(create_move(from, to, PROMO_KNIGHT), l);
-        add_move(create_move(from, to, PROMO_BISHOP), l);
-        add_move(create_move(from, to, PROMO_ROOK), l);
-        add_move(create_move(from, to, PROMO_QUEEN), l);
+        add_move(create_move(from, to, PROMO_KNIGHT), b->legal_moves);
+        add_move(create_move(from, to, PROMO_BISHOP), b->legal_moves);
+        add_move(create_move(from, to, PROMO_ROOK), b->legal_moves);
+        add_move(create_move(from, to, PROMO_QUEEN), b->legal_moves);
     }
 
-    bitboard captures = get_black_pawn_attacks(b.black_pawns) & b.white_pieces;
-    bitboard captures_left = captures & calc_shift(b.black_pawns, -1, -1);
-    bitboard captures_right = captures & calc_shift(b.black_pawns, 1, -1);
-    bitboard promotions_left = apply_masks(captures_left, 1, ~MASK_1);
-    bitboard promotions_right = apply_masks(captures_right, 1, ~MASK_1);
-    captures_left = apply_masks(captures_left, 1, MASK_1);
-    captures_right = apply_masks(captures_right, 1, MASK_1);
+    bitboard capture_pins = b->black_pins_vertical | b->black_pins_horizontal;
+    bitboard capture_pawns = b->black_pieces[PAWN] & ~capture_pins;
+    bitboard potential_captures = b->black_attacks[PAWN] & b->white_pieces_all;
+    bitboard captures_left = potential_captures & calc_shift(capture_pawns & ~b->black_pins_diagonal1, -1, -1);
+    bitboard captures_right = potential_captures & calc_shift(capture_pawns & ~b->black_pins_diagonal2, 1, -1);
+    bitboard promotions_left = captures_left & MASK_1;
+    bitboard promotions_right = captures_right & MASK_1;
+
+    captures_left &= ~MASK_1;
+    captures_right  &= ~MASK_1;
 
 
     while (captures_left) {
-        int to = __builtin_ctzll(captures_left);
+        int to = ctz(captures_left);
         clear_bit(captures_left, to);
         int from = to + 9;
 
-        add_move(create_move(from, to, CAPTURE), l);
+        add_move(create_move(from, to, CAPTURE), b->legal_moves);
     }
 
     while (captures_right) {
-        int to = __builtin_ctzll(captures_right);
+        int to = ctz(captures_right);
         clear_bit(captures_right, to);
         int from = to + 7;
 
-        add_move(create_move(from, to, CAPTURE), l);
+        add_move(create_move(from, to, CAPTURE), b->legal_moves);
     }
 
     while (promotions_left) {
-        int to = __builtin_ctzll(promotions_left);
+        int to = ctz(promotions_left);
         clear_bit(promotions_left, to);
         int from = to + 9;
 
-        add_move(create_move(from, to, PROMO_KNIGHT_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_BISHOP_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_ROOK_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_QUEEN_CAPTURE), l);
+        add_move(create_move(from, to, PROMO_KNIGHT_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_BISHOP_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_ROOK_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_QUEEN_CAPTURE), b->legal_moves);
     }
 
     while (promotions_right) {
-        int to = __builtin_ctzll(promotions_right);
+        int to = ctz(promotions_right);
         clear_bit(promotions_right, to);
         int from = to + 7;
 
-        add_move(create_move(from, to, PROMO_KNIGHT_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_BISHOP_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_ROOK_CAPTURE), l);
-        add_move(create_move(from, to, PROMO_QUEEN_CAPTURE), l);
+        add_move(create_move(from, to, PROMO_KNIGHT_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_BISHOP_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_ROOK_CAPTURE), b->legal_moves);
+        add_move(create_move(from, to, PROMO_QUEEN_CAPTURE), b->legal_moves);
     }
 }
 
-void get_white_knight_moves(board b, move_list *l)
+void get_white_knight_moves(board *b)
 {
-    bitboard knights = b.white_knights;
+    bitboard pins = b->white_pins_vertical | b->white_pins_horizontal |
+                    b->white_pins_diagonal1 | b->white_pins_diagonal2;
+    bitboard knights = b->white_pieces[KNIGHT] & ~pins;
 
     while (knights) {
-        int from = __builtin_ctzll(knights);
+        int from = ctz(knights);
         clear_bit(knights, from);
 
         bitboard attacks = get_knight_attacks(1ULL << from);
-        bitboard non_captures = attacks & ~(b.white_pieces | b.black_pieces);
-        bitboard captures = attacks & b.black_pieces;
+        bitboard non_captures = attacks & ~b->pieces_all;
+        bitboard captures = attacks & b->black_pieces_all;
 
         while (non_captures) {
-            int to = __builtin_ctzll(non_captures);
+            int to = ctz(non_captures);
             clear_bit(non_captures, to);
 
-            add_move(create_move(from, to, QUIET), l);
+            add_move(create_move(from, to, QUIET), b->legal_moves);
         }
 
         while (captures) {
-            int to = __builtin_ctzll(captures);
+            int to = ctz(captures);
             clear_bit(captures, to);
 
-            add_move(create_move(from, to, CAPTURE), l);
+            add_move(create_move(from, to, CAPTURE), b->legal_moves);
         }
     }
 }
 
-void get_black_knight_moves(board b, move_list *l)
+void get_black_knight_moves(board *b)
 {
-    bitboard knights = b.black_knights;
+    bitboard pins = b->black_pins_vertical | b->black_pins_horizontal |
+                    b->black_pins_diagonal1 | b->black_pins_diagonal2;
+    bitboard knights = b->black_pieces[KNIGHT] & ~pins;
 
     while (knights) {
-        int from = __builtin_ctzll(knights);
+        int from = ctz(knights);
         clear_bit(knights, from);
 
         bitboard attacks = get_knight_attacks(1ULL << from);
-        bitboard non_captures = attacks & ~(b.white_pieces | b.black_pieces);
-        bitboard captures = attacks & b.white_pieces;
+        bitboard non_captures = attacks & ~b->pieces_all;
+        bitboard captures = attacks & b->white_pieces_all;
 
         while (non_captures) {
-            int to = __builtin_ctzll(non_captures);
+            int to = ctz(non_captures);
             clear_bit(non_captures, to);
 
-            add_move(create_move(from, to, QUIET), l);
+            add_move(create_move(from, to, QUIET), b->legal_moves);
         }
 
         while (captures) {
-            int to = __builtin_ctzll(captures);
+            int to = ctz(captures);
             clear_bit(captures, to);
 
-            add_move(create_move(from, to, CAPTURE), l);
+            add_move(create_move(from, to, CAPTURE), b->legal_moves);
         }
     }
 }
 
-void get_white_bishop_moves(board b, move_list *l)
+void get_white_bishop_moves(board *b)
 {
-    bitboard bishops = b.white_bishops;
+    bitboard pins = b->white_pins_vertical | b->white_pins_horizontal;
+    bitboard bishops = b->white_pieces[BISHOP] & ~pins;
 
     while (bishops) {
-        int from = __builtin_ctzll(bishops);
+        int from = ctz(bishops);
         clear_bit(bishops, from);
 
-        bitboard attacks = get_bishop_attacks(1ULL << from, b);
-        bitboard non_captures = attacks & ~(b.white_pieces | b.black_pieces);
-        bitboard captures = attacks & b.black_pieces;
+        bitboard attacks = get_bishop_attacks(1ULL << from, b->pieces_all);
+        bitboard non_captures = attacks & ~b->pieces_all;
+        bitboard captures = attacks & b->black_pieces_all;
 
         while (non_captures) {
-            int to = __builtin_ctzll(non_captures);
+            int to = ctz(non_captures);
             clear_bit(non_captures, to);
 
-            add_move(create_move(from, to, QUIET), l);
+            add_move(create_move(from, to, QUIET), b->legal_moves);
         }
 
         while (captures) {
-            int to = __builtin_ctzll(captures);
+            int to = ctz(captures);
             clear_bit(captures, to);
 
-            add_move(create_move(from, to, CAPTURE), l);
+            add_move(create_move(from, to, CAPTURE), b->legal_moves);
         }
     }
 }
 
-void get_black_bishop_moves(board b, move_list *l)
+void get_black_bishop_moves(board *b)
 {
-    bitboard bishops = b.black_bishops;
+    bitboard bishops = b->black_pieces[BISHOP];
 
     while (bishops) {
-        int from = __builtin_ctzll(bishops);
+        int from = ctz(bishops);
         clear_bit(bishops, from);
 
-        bitboard attacks = get_bishop_attacks(1ULL << from, b);
-        bitboard non_captures = attacks & ~(b.white_pieces | b.black_pieces);
-        bitboard captures = attacks & b.white_pieces;
+        bitboard attacks = get_bishop_attacks(1ULL << from, b->pieces_all);
+        bitboard non_captures = attacks & ~b->pieces_all;
+        bitboard captures = attacks & b->white_pieces_all;
 
         while (non_captures) {
-            int to = __builtin_ctzll(non_captures);
+            int to = ctz(non_captures);
             clear_bit(non_captures, to);
 
-            add_move(create_move(from, to, QUIET), l);
+            add_move(create_move(from, to, QUIET), b->legal_moves);
         }
 
         while (captures) {
-            int to = __builtin_ctzll(captures);
+            int to = ctz(captures);
             clear_bit(captures, to);
 
-            add_move(create_move(from, to, CAPTURE), l);
+            add_move(create_move(from, to, CAPTURE), b->legal_moves);
         }
     }
 }
 
-void get_white_rook_moves(board b, move_list *l)
+void get_white_rook_moves(board *b)
 {
-    bitboard rooks = b.white_rooks;
+    bitboard rooks = b->white_pieces[ROOK];
 
     while (rooks) {
-        int from = __builtin_ctzll(rooks);
+        int from = ctz(rooks);
         clear_bit(rooks, from);
 
-        bitboard attacks = get_rook_attacks(1ULL << from, b);
-        bitboard non_captures = attacks & ~(b.white_pieces | b.black_pieces);
-        bitboard captures = attacks & b.black_pieces;
+        bitboard attacks = get_rook_attacks(1ULL << from, b->pieces_all);
+        bitboard non_captures = attacks & ~b->pieces_all;
+        bitboard captures = attacks & b->black_pieces_all;
 
         while (non_captures) {
-            int to = __builtin_ctzll(non_captures);
+            int to = ctz(non_captures);
             clear_bit(non_captures, to);
 
-            add_move(create_move(from, to, QUIET), l);
+            add_move(create_move(from, to, QUIET), b->legal_moves);
         }
 
         while (captures) {
-            int to = __builtin_ctzll(captures);
+            int to = ctz(captures);
             clear_bit(captures, to);
 
-            add_move(create_move(from, to, CAPTURE), l);
+            add_move(create_move(from, to, CAPTURE), b->legal_moves);
         }
     }
 }
 
-void get_black_rook_moves(board b, move_list *l)
+void get_black_rook_moves(board *b)
 {
-    bitboard rooks = b.black_rooks;
+    bitboard rooks = b->black_pieces[ROOK];
 
     while (rooks) {
-        int from = __builtin_ctzll(rooks);
+        int from = ctz(rooks);
         clear_bit(rooks, from);
 
-        bitboard attacks = get_rook_attacks(1ULL << from, b);
-        bitboard non_captures = attacks & ~(b.white_pieces | b.black_pieces);
-        bitboard captures = attacks & b.white_pieces;
+        bitboard attacks = get_rook_attacks(1ULL << from, b->pieces_all);
+        bitboard non_captures = attacks & ~b->pieces_all;
+        bitboard captures = attacks & b->white_pieces_all;
 
         while (non_captures) {
-            int to = __builtin_ctzll(non_captures);
+            int to = ctz(non_captures);
             clear_bit(non_captures, to);
 
-            add_move(create_move(from, to, QUIET), l);
+            add_move(create_move(from, to, QUIET), b->legal_moves);
         }
 
         while (captures) {
-            int to = __builtin_ctzll(captures);
+            int to = ctz(captures);
             clear_bit(captures, to);
 
-            add_move(create_move(from, to, CAPTURE), l);
+            add_move(create_move(from, to, CAPTURE), b->legal_moves);
         }
     }
 }
 
-void get_white_queen_moves(board b, move_list *l)
+void get_white_queen_moves(board *b)
 {
-    bitboard queens = b.white_queens;
+    bitboard queens = b->white_pieces[QUEEN];
 
     while (queens) {
-        int from = __builtin_ctzll(queens);
+        int from = ctz(queens);
         clear_bit(queens, from);
 
-        bitboard attacks = get_queen_attacks(1ULL << from, b);
-        bitboard non_captures = attacks & ~(b.white_pieces | b.black_pieces);
-        bitboard captures = attacks & b.black_pieces;
+        bitboard attacks = get_queen_attacks(1ULL << from, b->pieces_all);
+        bitboard non_captures = attacks & ~b->pieces_all;
+        bitboard captures = attacks & b->black_pieces_all;
 
         while (non_captures) {
-            int to = __builtin_ctzll(non_captures);
+            int to = ctz(non_captures);
             clear_bit(non_captures, to);
 
-            add_move(create_move(from, to, QUIET), l);
+            add_move(create_move(from, to, QUIET), b->legal_moves);
         }
 
         while (captures) {
-            int to = __builtin_ctzll(captures);
+            int to = ctz(captures);
             clear_bit(captures, to);
 
-            add_move(create_move(from, to, CAPTURE), l);
+            add_move(create_move(from, to, CAPTURE), b->legal_moves);
         }
     }
 }
 
-void get_black_queen_moves(board b, move_list *l)
+void get_black_queen_moves(board *b)
 {
-    bitboard queens = b.black_queens;
+    bitboard queens = b->black_pieces[QUEEN];
 
     while (queens) {
-        int from = __builtin_ctzll(queens);
+        int from = ctz(queens);
         clear_bit(queens, from);
 
-        bitboard attacks = get_queen_attacks(1ULL << from, b);
-        bitboard non_captures = attacks & ~(b.white_pieces | b.black_pieces);
-        bitboard captures = attacks & b.white_pieces;
+        bitboard attacks = get_queen_attacks(1ULL << from, b->pieces_all);
+        bitboard non_captures = attacks & ~b->pieces_all;
+        bitboard captures = attacks & b->white_pieces_all;
 
         while (non_captures) {
-            int to = __builtin_ctzll(non_captures);
+            int to = ctz(non_captures);
             clear_bit(non_captures, to);
 
-            add_move(create_move(from, to, QUIET), l);
+            add_move(create_move(from, to, QUIET), b->legal_moves);
         }
 
         while (captures) {
-            int to = __builtin_ctzll(captures);
+            int to = ctz(captures);
             clear_bit(captures, to);
 
-            add_move(create_move(from, to, CAPTURE), l);
+            add_move(create_move(from, to, CAPTURE), b->legal_moves);
         }
     }
 }

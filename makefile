@@ -1,7 +1,7 @@
 CC = gcc
 CXX = g++
 
-CFLAGS = -Wall -Wextra -g3 -O1 -I./include -I./SDL/x86_64-w64-mingw32/include/SDL2/
+CFLAGS = -Wall -Wextra -g3 -I./include -I./SDL/x86_64-w64-mingw32/include/SDL2/
 LDFLAGS = -L./SDL/x86_64-w64-mingw32/lib/ -lSDL2
 
 IMG_SRCS = src/img.c src/mat.c src/tens.c src/net.c src/cnet.c src/utils.c
@@ -35,4 +35,4 @@ chess: $(CHESS_OBJS)
 	$(CC) $(CHESS_OBJS) -o chess
 
 clean:
-	rm -rf obj snake cube
+	rm -rf obj snake cube chess

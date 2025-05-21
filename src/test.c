@@ -51,6 +51,24 @@ bitboard find_magic(bitboard mask, int relevant_bits, int pos)
     return magic;
 }
 
+move get_move(void)
+{
+    char from_file;
+    int from_rank;
+    char to_file;
+    int to_rank;
+    int flags;
+
+    printf("from\n");
+    scanf(" %c%d", &from_file, &from_rank);
+    printf("to\n");
+    scanf(" %c%d", &to_file, &to_rank);
+    printf("flags\n");
+    scanf(" %d", &flags);
+
+    return create_move(from_file - 'a' + 8 * (from_rank - 1), to_file - 'a' + 8 * (to_rank - 1), flags);
+}
+
 int main(void)
 {
     srand(time(0));
@@ -127,22 +145,50 @@ int main(void)
         }
         printf("\n");
     }*/
+    init_bishop_attack_table();
+    init_rook_attack_table();
+    init_bishop_rays();
+    init_rook_rays();
+    board b = init_board();
 
-    for (int i = 0; i < 16; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            printf("0x%016llxULL, ", get_bishop_attacks_slow(0ULL, i * 4 + j));
+    while (true) {
+        update_board_white(&b);
+        bool found = false;
+        while (!found) {
+            draw_board(&b);
+            move white_move = get_move();
+
+            for (int i = 0; i < b.legal_moves.count; ++i) {
+                if (white_move == b.legal_moves.moves[i]) {
+                    apply_move_white(&b, white_move);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) printf("Illegal move.\n");
         }
-        printf("\n");
+
+        update_board_black(&b);
+        found = false;
+        while (!found) {
+            draw_board(&b);
+            move black_move = get_move();
+
+            for (int i = 0; i < b.legal_moves.count; ++i) {
+                if (black_move == b.legal_moves.moves[i]) {
+                    apply_move_black(&b, black_move);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) printf("Illegal move.\n");
+        }
     }
 
-    printf("\n");
-
-    for (int i = 0; i < 16; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            printf("0x%016llxULL, ", get_rook_attacks_slow(0ULL, i * 4 + j));
-        }
-        printf("\n");
-    }
+    destroy_bishop_attack_table();
+    destroy_rook_attack_table();
 
     return 0;
 }

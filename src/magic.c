@@ -113,9 +113,16 @@ void init_bishop_attack_table(void)
     }
 }
 
+void destroy_bishop_attack_table(void)
+{
+    for (int i = 0; i < 64; ++i) {
+        free(bishop_attack_table[i]);
+    }
+}
+
 int bishop_hash(bitboard blockers, int pos)
 {
-    return apply_masks(blockers, 1, bishop_masks[pos]) * bishop_magic[pos] >> bishop_shifts[pos];
+    return (blockers & bishop_masks[pos]) * bishop_magic[pos] >> bishop_shifts[pos];
 }
 
 bitboard *rook_attack_table[64];
@@ -213,8 +220,14 @@ void init_rook_attack_table(void)
     }
 }
 
+void destroy_rook_attack_table(void)
+{
+    for (int i = 0; i < 64; ++i) {
+        free(rook_attack_table[i]);
+    }
+}
 
 int rook_hash(bitboard blockers, int pos)
 {
-    return apply_masks(blockers, 1, rook_masks[pos]) * rook_magic[pos] >> rook_shifts[pos];
+    return (blockers & rook_masks[pos]) * rook_magic[pos] >> rook_shifts[pos];
 }

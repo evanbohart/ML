@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <math.h>
 
-#ifdef WINDOWS
+#ifdef _WIN32
 #include <direct.h>
 #define get_directory _getcwd
 #else

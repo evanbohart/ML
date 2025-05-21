@@ -1,54 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "chess.h"
-
-bitboard rand_bitboard(bitboard *occupied, int c)
-{
-    bitboard b = 0;
-
-    for (int i = 0; i < c; ++i) {
-        int pos;
-        do {
-            pos = rand() % 64;
-        }
-        while (check_bit(*occupied, pos));
-
-        set_bit(*occupied, pos);
-        set_bit(b, pos);
-    }
-
-    return b;
-}
-
-bitboard rand_king(bitboard *occupied)
-{
-    return rand_bitboard(occupied, 1);
-}
-
-bitboard rand_pawns(bitboard *occupied)
-{
-    return rand_bitboard(occupied, rand() % 9);
-}
-
-bitboard rand_knights(bitboard *occupied)
-{
-    return rand_bitboard(occupied, rand() % 3);
-}
-
-bitboard rand_bishops(bitboard *occupied)
-{
-    return rand_bitboard(occupied, rand() % 3);
-}
-
-bitboard rand_rooks(bitboard *occupied)
-{
-    return rand_bitboard(occupied, rand() % 3);
-}
-
-bitboard rand_queens(bitboard *occupied)
-{
-    return rand_bitboard(occupied, rand() % 2);
-}
 
 void draw_bitboard(bitboard b)
 {
@@ -65,119 +18,187 @@ void draw_bitboard(bitboard b)
     printf("  a b c d e f g h\n");
 }
 
-bitboard apply_masks(bitboard b, int count, ...)
-{
-    va_list args;
-    va_start(args, count);
-
-    for (int i = 0; i < count; ++i) {
-        b &= va_arg(args, bitboard);
-    }
-    va_end(args);
-
-    return b;
-}
-
 board init_board(void)
 {
     board b;
-    b.white_king = STARTING_WHITE_KING;
-    b.black_king = STARTING_BLACK_KING;
-    b.white_pawns = STARTING_WHITE_PAWNS;
-    b.black_pawns = STARTING_BLACK_PAWNS;
-    b.white_knights = STARTING_WHITE_KNIGHTS;
-    b.black_knights = STARTING_BLACK_KNIGHTS;
-    b.white_bishops = STARTING_WHITE_BISHOPS;
-    b.black_bishops = STARTING_BLACK_BISHOPS;
-    b.white_queens = STARTING_WHITE_QUEENS;
-    b.black_queens = STARTING_BLACK_QUEENS;
-    b.white_rooks = STARTING_WHITE_ROOKS;
-    b.black_rooks = STARTING_BLACK_ROOKS;
+    b.white_pieces[KING] = STARTING_WHITE_KING;
+    b.white_pieces[PAWN] = STARTING_WHITE_PAWNS;
+    b.white_pieces[KNIGHT] = STARTING_WHITE_KNIGHTS;
+    b.white_pieces[BISHOP] = STARTING_WHITE_BISHOPS;
+    b.white_pieces[ROOK] = STARTING_WHITE_ROOKS;
+    b.white_pieces[QUEEN] = STARTING_WHITE_QUEENS;
+    b.black_pieces[KING] = STARTING_BLACK_KING;
+    b.black_pieces[PAWN] = STARTING_BLACK_PAWNS;
+    b.black_pieces[KNIGHT] = STARTING_BLACK_KNIGHTS;
+    b.black_pieces[BISHOP] = STARTING_BLACK_BISHOPS;
+    b.black_pieces[ROOK] = STARTING_BLACK_ROOKS;
+    b.black_pieces[QUEEN] = STARTING_BLACK_QUEENS;
 
-    b.white_pieces = b.white_king | b.white_pawns | b.white_knights |
-                     b.white_bishops | b.white_rooks | b.white_queens;
-    b.black_pieces = b.black_king | b.black_pawns | b.black_knights |
-                     b.black_bishops | b.black_rooks | b.black_queens;
+    b.white_pieces_all = b.white_pieces[KING] | b.white_pieces[PAWN] | b.white_pieces[KNIGHT] |
+                     b.white_pieces[BISHOP] | b.white_pieces[ROOK] | b.white_pieces[QUEEN];
+    b.black_pieces_all = b.black_pieces[KING] | b.black_pieces[PAWN] | b.black_pieces[KNIGHT] |
+                     b.black_pieces[BISHOP] | b.black_pieces[ROOK] | b.black_pieces[QUEEN];
 
-    return b;
-}
+    b.pieces_all = b.white_pieces_all | b.black_pieces_all;
 
-board rand_board(void)
-{
-    board b;
-    bitboard occupied = 0;
+    b.white_pins_vertical = 0ULL;
+    b.black_pins_vertical = 0ULL;
+    b.white_pins_horizontal = 0ULL;
+    b.black_pins_horizontal = 0ULL;
+    b.white_pins_diagonal1 = 0ULL;
+    b.black_pins_diagonal1 = 0ULL;
+    b.white_pins_diagonal2 = 0ULL;
+    b.black_pins_diagonal2 = 0ULL;
 
-    b.white_king = rand_king(&occupied);
-    b.black_king = rand_king(&occupied);
-    b.white_pawns = rand_pawns(&occupied);
-    b.black_pawns = rand_pawns(&occupied);
-    b.white_knights = rand_knights(&occupied);
-    b.black_knights = rand_knights(&occupied);
-    b.white_bishops = rand_bishops(&occupied);
-    b.black_bishops = rand_bishops(&occupied);
-    b.white_rooks = rand_rooks(&occupied);
-    b.black_rooks = rand_rooks(&occupied);
-    b.white_queens = rand_queens(&occupied);
-    b.black_queens = rand_queens(&occupied);
+    init_piece_lookup(b.piece_lookup);
 
-    b.white_pieces = b.white_king | b.white_pawns | b.white_knights |
-                     b.white_bishops | b.white_rooks | b.white_queens;
-    b.black_pieces = b.black_king | b.black_pawns | b.black_knights |
-                     b.black_bishops | b.black_rooks | b.black_queens;
+    clear_moves(b.legal_moves);
+    clear_moves(b.legal_moves);
 
     return b;
 }
 
-bool white_check(board b)
+void init_piece_lookup(piece *piece_lookup)
 {
-    return b.white_king & get_black_attacks(b);
+    piece_lookup[0] = ROOK;
+    piece_lookup[1] = KNIGHT;
+    piece_lookup[2] = BISHOP;
+    piece_lookup[3] = QUEEN;
+    piece_lookup[4] = KING;
+    piece_lookup[5] = BISHOP;
+    piece_lookup[6] = KNIGHT;
+    piece_lookup[7] = ROOK;
+
+    for (int i = 8; i < 16; ++i) {
+        piece_lookup[i] = PAWN;
+    }
+
+    for (int i = 16; i < 48; ++i) {
+        piece_lookup[i] = NONE;
+    }
+
+    for (int i = 48; i < 56; ++i) {
+        piece_lookup[i] = PAWN;
+    }
+
+    piece_lookup[56] = ROOK;
+    piece_lookup[57] = KNIGHT;
+    piece_lookup[58] = BISHOP;
+    piece_lookup[59] = QUEEN;
+    piece_lookup[60] = KING;
+    piece_lookup[61] = BISHOP;
+    piece_lookup[62] = KNIGHT;
+    piece_lookup[63] = ROOK;
 }
 
-bool black_check(board b)
+void apply_move_white(board *b, move m)
 {
-    return b.black_king & get_white_attacks(b);
+    int from = move_from(m);
+    int to = move_to(m);
+    int flag = move_flag(m);
+
+    if (flag == CAPTURE) {
+        piece captured_piece = b->piece_lookup[to];
+
+        clear_bit(b->black_pieces[captured_piece], to);
+        clear_bit(b->black_pieces_all, to);
+        clear_bit(b->pieces_all, to);
+    }
+
+    piece moving_piece = b->piece_lookup[from];
+
+    clear_bit(b->white_pieces[moving_piece], from);
+    clear_bit(b->white_pieces_all, from);
+    clear_bit(b->pieces_all, from);
+    b->piece_lookup[from] = NONE;
+
+    set_bit(b->white_pieces[moving_piece], to);
+    set_bit(b->white_pieces_all, to);
+    set_bit(b->pieces_all, to);
+    b->piece_lookup[to] = moving_piece;
 }
 
-bool white_checkmate(board b)
+void apply_move_black(board *b, move m)
 {
-    if (!white_check(b)) return false;
+    int from = move_from(m);
+    int to = move_to(m);
+    int flag = move_flag(m);
 
-    move_list l;
-    get_white_king_moves(b, &l);
+    if (flag == CAPTURE) {
+        piece captured_piece = b->piece_lookup[to];
 
-    return l.count == 0;
+        clear_bit(b->white_pieces[captured_piece], to);
+        clear_bit(b->white_pieces_all, to);
+        clear_bit(b->pieces_all, to);
+    }
+
+    piece moving_piece = b->piece_lookup[from];
+
+    clear_bit(b->black_pieces[moving_piece], from);
+    clear_bit(b->black_pieces_all, from);
+    clear_bit(b->pieces_all, from);
+    b->piece_lookup[from] = NONE;
+
+    set_bit(b->black_pieces[moving_piece], to);
+    set_bit(b->black_pieces_all, to);
+    set_bit(b->pieces_all, to);
+    b->piece_lookup[to] = moving_piece;
 }
 
-bool black_checkmate(board b)
+void update_board_white(board *b)
 {
-    if (black_check(b)) return false;
-
-    move_list l;
-    get_black_king_moves(b, &l);
-
-    return l.count == 0;
+    get_black_attacks(b);
+    get_white_pins(b);
+    get_white_moves(b);
 }
 
-void draw_board(board b)
+void update_board_black(board *b)
 {
-    bitboard pieces[12] = { b.white_king, b.white_pawns, b.white_knights,
-                            b.white_bishops, b.white_rooks, b.white_queens,
-                            b.black_king, b.black_pawns, b.black_knights,
-                            b.black_bishops, b.black_rooks, b.black_queens };
+    get_white_attacks(b);
+    get_black_pins(b);
+    get_black_moves(b);
+}
 
-    char piece_chars[12] = { 'K', 'P', 'N', 'B', 'R', 'Q',
-                             'k', 'p', 'n', 'b', 'r', 'q' };
+bool white_check(board *b)
+{
+    return b->white_pieces[KING] & b->black_attacks_all;
+}
+
+bool black_check(board *b)
+{
+    return b->black_pieces[KING] & b->white_attacks_all;
+}
+
+bool white_checkmate(board *b)
+{
+    return white_check(b) && b->legal_moves.count == 0;
+}
+
+bool black_checkmate(board *b)
+{
+    return black_check(b) && b->legal_moves.count == 0;
+}
+
+void draw_board(board *b)
+{
+    char piece_chars[6] = { 'k', 'p', 'n', 'b', 'r', 'q' };
 
     for (int i = 7; i >= 0; --i) {
         printf("%d ", i + 1);
 
         for (int j = 0; j < 8; ++j) {
-            char piece = '.';
+            int pos = i * 8 + j;
+            char piece;
+            int piece_index = b->piece_lookup[pos];
 
-            for (int k = 0; k < 12; ++k) {
-                if (check_bit(pieces[k], i * 8 + j)) {
-                    piece = piece_chars[k];
-                }
+            if (piece_index == NONE) {
+                piece = '.';
+            }
+            else if (check_bit(b->white_pieces_all, pos)) {
+                piece = toupper(piece_chars[piece_index]);
+            }
+            else {
+                piece = piece_chars[piece_index];
             }
 
             printf("%c ", piece);

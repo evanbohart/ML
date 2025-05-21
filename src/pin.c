@@ -130,7 +130,8 @@ bitboard get_pins_vertical(bitboard king, bitboard attackers, bitboard friendly,
 
     if (attackers_up) {
         int attacker_pos = ctz(attackers_up);
-        bitboard pieces_between = pieces_all & ray_up & ((1ULL << attacker_pos) - 1);
+        bitboard pieces_between = pieces_all & ray_up;
+        clear_from(pieces_between, attacker_pos);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
             set_bits(pins, pieces_between);
@@ -139,7 +140,8 @@ bitboard get_pins_vertical(bitboard king, bitboard attackers, bitboard friendly,
 
     if (attackers_down) {
         int attacker_pos = 63 - clz(attackers_down);
-        bitboard pieces_between = pieces_all & ray_down & ~((1ULL << attacker_pos) - 1);
+        bitboard pieces_between = pieces_all & ray_down;
+        clear_until(pieces_between, attacker_pos + 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
             set_bits(pins, pieces_between);
@@ -159,10 +161,11 @@ bitboard get_pins_horizontal(bitboard king, bitboard attackers, bitboard friendl
     bitboard ray_right = rook_rays[king_pos][3];
     bitboard attackers_left = attackers & ray_left;
     bitboard attackers_right = attackers & ray_right;
-
+//clear until ~
     if (attackers_left) {
         int attacker_pos = 63 - clz(attackers_left);
-        bitboard pieces_between = pieces_all & ray_left & ~((1ULL << attacker_pos) - 1);
+        bitboard pieces_between = pieces_all & ray_left;
+        clear_until(pieces_between, attacker_pos + 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
             set_bits(pins, pieces_between);
@@ -171,7 +174,8 @@ bitboard get_pins_horizontal(bitboard king, bitboard attackers, bitboard friendl
 
     if (attackers_right) {
         int attacker_pos = ctz(attackers_right);
-        bitboard pieces_between = pieces_all & ray_right & ((1ULL << attacker_pos) - 1);
+        bitboard pieces_between = pieces_all & ray_right;
+        clear_from(pieces_between, attacker_pos);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
             set_bits(pins, pieces_between);
@@ -194,7 +198,8 @@ bitboard get_pins_diagonal1(bitboard king, bitboard attackers, bitboard friendly
 
     if (attackers_nw) {
         int attacker_pos = ctz(attackers_nw);
-        bitboard pieces_between = pieces_all & ray_nw & ((1ULL << attacker_pos) - 1);
+        bitboard pieces_between = pieces_all & ray_nw;
+        clear_from(pieces_between, attacker_pos);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
             set_bits(pins, pieces_between);
@@ -203,7 +208,8 @@ bitboard get_pins_diagonal1(bitboard king, bitboard attackers, bitboard friendly
 
     if (attackers_sw) {
         int attacker_pos = 63 - clz(attackers_sw);
-        bitboard pieces_between = pieces_all & ray_sw & ~((1ULL << attacker_pos) - 1);
+        bitboard pieces_between = pieces_all & ray_sw;
+        clear_until(pieces_between, attacker_pos + 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
             set_bits(pins, pieces_between);
@@ -226,7 +232,8 @@ bitboard get_pins_diagonal2(bitboard king, bitboard attackers, bitboard friendly
 
     if (attackers_ne) {
         int attacker_pos = ctz(attackers_ne);
-        bitboard pieces_between = pieces_all & ray_ne & ((1ULL << attacker_pos) - 1);
+        bitboard pieces_between = pieces_all & ray_ne;
+        clear_from(pieces_between, attacker_pos);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
             set_bits(pins, pieces_between);
@@ -235,7 +242,8 @@ bitboard get_pins_diagonal2(bitboard king, bitboard attackers, bitboard friendly
 
     if (attackers_se) {
         int attacker_pos = 63 - clz(attackers_se);
-        bitboard pieces_between = pieces_all & ray_se & ~((1ULL << attacker_pos) - 1);
+        bitboard pieces_between = pieces_all & ray_se;
+        clear_until(pieces_between, attacker_pos + 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
             set_bits(pins, pieces_between);

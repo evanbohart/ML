@@ -48,6 +48,8 @@ void draw_bitboard(bitboard b);
 #define clear_bits(b, bits) ((b) &= ~(bits))
 #define check_bit(b, pos) ((b) & (1ULL << (pos)))
 #define check_bits(b, bits) (((b) & (bits)) == (bits))
+#define clear_from(b, pos) ((b) &= ((1ULL << (pos)) - 1))
+#define clear_until(b, pos) ((b) &= ~((1ULL << (pos)) - 1))
 
 #define calc_shift(bitboard, x, y) (((x) + 8 * (y) > 0) ? \
                                    (bitboard) << ((x) + 8 * (y)) : \

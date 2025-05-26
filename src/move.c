@@ -59,14 +59,15 @@ void get_king_moves(board *b, color c)
 
 void get_pawn_moves(board *b, color c)
 {
-    int dir = c ? 1 : -1;
+    int dir = c ? -1 : 1;
+    bitboard promotion_rank = c ? RANK_1 : RANK_8;
+    bitboard double_push_rank = c ? RANK_5 : RANK_4;
     bitboard push_pins = b->pins_horizontal[c] | b->pins_diagonal1[c] | b->pins_diagonal2[c];
     bitboard push_pawns = b->pieces[c][PAWN] & ~push_pins;
     bitboard single_pushes = calc_shift(push_pawns, 0, dir) & ~total_occupancy(*b);
-    bitboard double_pushes = calc_shift(single_pushes, 0, dir) &
-                             ~total_occupancy(*b) & (c ? MASK_4 : MASK_5);
-    bitboard promotions = single_pushes & (c ? MASK_8 : MASK_1);
-    bitboard quiet_pushes = single_pushes & ~(c ? MASK_8 : MASK_1);
+    bitboard double_pushes = calc_shift(single_pushes, 0, dir) & ~total_occupancy(*b) & double_push_rank;
+    bitboard promotions = single_pushes & promotion_rank;
+    bitboard quiet_pushes = single_pushes & ~promotion_rank;
 
     while (quiet_pushes) {
         int to = ctz(quiet_pushes);
@@ -96,14 +97,16 @@ void get_pawn_moves(board *b, color c)
     }
 
     bitboard capture_pins = b->pins_vertical[c] | b->pins_horizontal[c];
+    bitboard capture_pins_left = c ? b->pins_diagonal1[c] : b->pins_diagonal2[c];
+    bitboard capture_pins_right = c ? b->pins_diagonal2[c] : b->pins_diagonal1[c];
     bitboard capture_pawns = b->pieces[c][PAWN] & ~capture_pins;
-    bitboard potential_captures = b->attacks[2][PAWN] & b->pieces_all[c];
-    bitboard captures_left = potential_captures & calc_shift(capture_pawns & ~b->pins_diagonal2[c], -1, dir);
-    bitboard captures_right = potential_captures & calc_shift(capture_pawns & ~b->pins_diagonal1[c], 1, dir);
-    bitboard promotions_left = captures_left & (c ? MASK_8 : MASK_1);
-    bitboard promotions_right = captures_right & (c ? MASK_8 : MASK_1);
-    bitboard non_promotions_left = captures_left & ~(c ? MASK_8 : MASK_1);
-    bitboard non_promotions_right = captures_right & ~(c ? MASK_8 : MASK_1);
+    bitboard potential_captures = b->attacks[c][PAWN] & b->pieces_all[!c];
+    bitboard captures_left = potential_captures & calc_shift(capture_pawns & ~capture_pins_left, -1, dir);
+    bitboard captures_right = potential_captures & calc_shift(capture_pawns & ~capture_pins_right, 1, dir);
+    bitboard promotions_left = captures_left & promotion_rank;
+    bitboard promotions_right = captures_right & promotion_rank;
+    bitboard non_promotions_left = captures_left & ~promotion_rank;
+    bitboard non_promotions_right = captures_right & ~promotion_rank;
 
     while (non_promotions_left) {
         int to = ctz(non_promotions_left);
@@ -177,21 +180,23 @@ void get_knight_moves(board *b, color c)
 
 void get_bishop_moves(board *b, color c)
 {
-    bitboard pins = b->pins_vertical[c] | b->pins_vertical[c];
+    bitboard pins = b->pins_vertical[c] | b->pins_horizontal[c];
     bitboard bishops = b->pieces[c][BISHOP] & ~pins;
 
     while (bishops) {
         int from = ctz(bishops);
         clear_bit(bishops, from);
 
-        bitboard ray_diagonal1 = bishop_rays[from][0] | bishop_rays[from][3];
-        bitboard ray_diagonal2 = bishop_rays[from][1] | bishop_rays[from][2];
+        bitboard ray_diagonal1 = bishop_rays[from][0] | bishop_rays[from][2];
+        bitboard ray_diagonal2 = bishop_rays[from][1] | bishop_rays[from][3];
 
         int index = bishop_hash(total_occupancy(*b), from);
-        bitboard attacks = rook_attack_table[from][index];
+        bitboard attacks = bishop_attack_table[from][index];
 
-        bitboard attacks_diagonal1 = check_bit(b->pins_diagonal2[c], from) ? 0ULL : attacks & ray_diagonal1;
-        bitboard attacks_diagonal2 = check_bit(b->pins_diagonal1[c], from) ? 0ULL : attacks & ray_diagonal2;
+        bitboard attacks_diagonal1 = check_bit(b->pins_diagonal2[c], from) ?
+                                     BITBOARD_ZERO : attacks & ray_diagonal1;
+        bitboard attacks_diagonal2 = check_bit(b->pins_diagonal1[c], from) ?
+                                     BITBOARD_ZERO : attacks & ray_diagonal2;
         bitboard non_captures_diagonal1 = attacks_diagonal1 & ~total_occupancy(*b);
         bitboard non_captures_diagonal2 = attacks_diagonal2 & ~total_occupancy(*b);
         bitboard captures_diagonal1 = attacks_diagonal1 & b->pieces_all[!c];
@@ -230,8 +235,8 @@ void get_rook_moves(board *b, color c)
         int index = rook_hash(total_occupancy(*b), from);
         bitboard attacks = rook_attack_table[from][index];
 
-        bitboard attacks_vertical = check_bit(b->pins_horizontal[c], from) ? 0ULL : attacks & ray_vertical;
-        bitboard attacks_horizontal = check_bit(b->pins_vertical[c], from) ? 0ULL : attacks & ray_horizontal;
+        bitboard attacks_vertical = check_bit(b->pins_horizontal[c], from) ? BITBOARD_ZERO : attacks & ray_vertical;
+        bitboard attacks_horizontal = check_bit(b->pins_vertical[c], from) ? BITBOARD_ZERO : attacks & ray_horizontal;
         bitboard non_captures_vertical = attacks_vertical & ~total_occupancy(*b);
         bitboard non_captures_horizontal = attacks_horizontal & ~total_occupancy(*b);
         bitboard captures_vertical = attacks_vertical & b->pieces_all[!c];
@@ -274,13 +279,17 @@ void get_queen_moves(board *b, color c)
                            rook_attack_table[from][rook_table_index];
 
         bitboard attacks_vertical = check_bit(b->pins_horizontal[c] | b->pins_diagonal1[c] |
-                                              b->pins_diagonal2[c], from) ? 0ULL : attacks & ray_vertical;
+                                              b->pins_diagonal2[c], from) ? BITBOARD_ZERO :
+                                              attacks & ray_vertical;
         bitboard attacks_horizontal = check_bit(b->pins_vertical[c] | b->pins_diagonal1[c] |
-                                                b->pins_diagonal2[c], from) ? 0ULL : attacks & ray_horizontal;
+                                                b->pins_diagonal2[c], from) ? BITBOARD_ZERO :
+                                                attacks & ray_horizontal;
         bitboard attacks_diagonal1 = check_bit(b->pins_vertical[c] | b->pins_horizontal[c] |
-                                               b->pins_diagonal2[c], from) ? 0ULL : attacks & ray_diagonal1;
+                                               b->pins_diagonal2[c], from) ? BITBOARD_ZERO :
+                                               attacks & ray_diagonal1;
         bitboard attacks_diagonal2 = check_bit(b->pins_vertical[c] | b->pins_horizontal[c] |
-                                               b->pins_diagonal1[c], from) ? 0ULL : attacks & ray_diagonal2;
+                                               b->pins_diagonal1[c], from) ? BITBOARD_ZERO :
+                                               attacks & ray_diagonal2;
         bitboard non_captures_vertical = attacks_vertical & ~total_occupancy(*b);
         bitboard non_captures_horizontal = attacks_horizontal & ~total_occupancy(*b);
         bitboard non_captures_diagonal1 = attacks_diagonal1 & ~total_occupancy(*b);

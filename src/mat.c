@@ -191,20 +191,17 @@ void mat_softmax(mat destination, mat m)
     mat_scale(destination, destination, 1 / sum);
 }
 
-void mat_pad(mat destination, mat m)
+void mat_pad(mat destination, mat m, padding_t padding)
 {
-    assert(destination.rows > m.rows);
-    assert(destination.cols > m.cols);
+    assert(destination.rows == m.rows + padding[TOP] + padding[BOTTOM]);
+    assert(destination.cols == m.cols + padding[LEFT] + padding[RIGHT]);
 
     for (int i = 0; i < destination.rows; ++i) {
         for (int j = 0; j < destination.cols; ++j) {
-            if (i < (destination.rows - m.rows) / 2 || j < (destination.cols - m.cols) / 2 ||
-                i > m.rows || j > m.cols) {
-                mat_at(destination, i, j) = 0;
-            }
-            else {
-                mat_at(destination, i, j) = mat_at(m, i - (destination.rows - m.rows) / 2,
-                                                   j - (destination.rows - m.rows) / 2);
+            mat_at(destination, i, j) = 0;
+            if (i >= padding[TOP] && i < (m.rows + padding[TOP]) &&
+                j >= padding[LEFT] && i < (m.rows + padding[LEFT])) {
+                mat_at(destination, i, j) = mat_at(m, i - padding[TOP], j - padding[LEFT]);
             }
         }
     }
@@ -250,17 +247,71 @@ void mat_convolve(mat destination, mat m, mat filter)
     free(had.vals);
 }
 
-double mat_max(mat m)
+void mat_maxpool(mat destination, mat mask, mat m, int pooling_size) 
 {
-    double max = -DBL_MAX;
+    assert(destination.rows == m.rows / pooling_size);
+    assert(destination.cols == m.cols / pooling_size);
+    assert(mask.rows % pooling_size == 0);
+    assert(mask.cols % pooling_size == 0);
+    assert(mask.rows == m.rows);
+    assert(mask.cols == m.cols);
 
-    for (int i = 0; i < m.rows; ++i) {
-        for (int j = 0; j < m.cols; ++j) {
-            if (mat_at(m, i, j) > max) max = mat_at(m, i, j);
+    mat filter = mat_alloc(pooling_size, pooling_size);
+
+    mat_fill(mask, 0);
+
+    for (int i = 0; i < destination.rows; ++i) {
+        for (int j = 0; j < destination.cols; ++j) {
+            mat_filter(filter, m, i * pooling_size, j * pooling_size);
+
+            double max = -DBL_MAX;
+            int row = 0;
+            int col = 0;
+
+            for (int k = 0; k < filter.rows; ++k) {
+                for (int l = 0; l < filter.cols; ++l) {
+                    if (mat_at(filter, k, l) > max) {
+                        max = mat_at(filter, k, l);
+                        row = k;
+                        col = l;
+                    }
+                }
+            }
+
+            mat_at(destination, i, j) = max;
+            mat_at(mask, i * pooling_size + row, j * pooling_size + col) = 1;
         }
     }
 
-    return max;
+    free(filter.vals);
+}
+
+void mat_maxunpool(mat destination, mat mask, mat m, int pooling_size)
+{
+    assert(destination.rows == mask.rows);
+    assert(destination.cols == mask.cols);
+    assert(destination.rows == m.rows * pooling_size);
+    assert(destination.cols == m.cols * pooling_size);
+
+    mat filter = mat_alloc(pooling_size, pooling_size);
+
+    mat_fill(destination, 0);
+
+    for (int i = 0; i < m.rows; ++i) {
+        for (int j = 0; j < m.cols; ++j) {
+            mat_filter(filter, mask, i * pooling_size, j * pooling_size);
+
+            for (int k = 0; k < pooling_size; ++k) {
+                for (int l = 0; l < pooling_size; ++l) {
+                    if (mat_at(filter, k, l) == 1) {
+                        mat_at(destination, i * pooling_size + k, j * pooling_size + l) = mat_at(m, i, j);
+                    }
+                }
+            }
+        }
+    }
+
+    free(filter.vals);
 }
 
 void mat_print(mat m)

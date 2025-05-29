@@ -146,7 +146,7 @@ void get_pins(board *b, color c)
 void get_pins_vertical(board *b, color c)
 {
     bitboard attackers = b->pieces[!c][ROOK] | b->pieces[!c][QUEEN];
-    bitboard friendly = b->pieces_all[c];
+    bitboard friendly = b->pieces_color[c];
 
     b->pins_vertical[c] = BITBOARD_ZERO;
 
@@ -159,7 +159,7 @@ void get_pins_vertical(board *b, color c)
 
     if (attackers_up) {
         int attacker_pos = ctz(attackers_up);
-        bitboard pieces_between = total_occupancy(*b) & ray_up;
+        bitboard pieces_between = b->pieces_all & ray_up;
         clear_from(pieces_between, attacker_pos - 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
@@ -169,7 +169,7 @@ void get_pins_vertical(board *b, color c)
 
     if (attackers_down) {
         int attacker_pos = 63 - clz(attackers_down);
-        bitboard pieces_between = total_occupancy(*b) & ray_down;
+        bitboard pieces_between = b->pieces_all & ray_down;
         clear_until(pieces_between, attacker_pos + 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
@@ -181,7 +181,7 @@ void get_pins_vertical(board *b, color c)
 void get_pins_horizontal(board *b, color c)
 {
     bitboard attackers = b->pieces[!c][ROOK] | b->pieces[!c][QUEEN];
-    bitboard friendly = b->pieces_all[c];
+    bitboard friendly = b->pieces_color[c];
 
     b->pins_vertical[c] = BITBOARD_ZERO;
 
@@ -194,7 +194,7 @@ void get_pins_horizontal(board *b, color c)
 
     if (attackers_left) {
         int attacker_pos = 63 - clz(attackers_left);
-        bitboard pieces_between = total_occupancy(*b) & ray_left;
+        bitboard pieces_between = b->pieces_all & ray_left;
         clear_until(pieces_between, attacker_pos + 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
@@ -204,7 +204,7 @@ void get_pins_horizontal(board *b, color c)
 
     if (attackers_right) {
         int attacker_pos = ctz(attackers_right);
-        bitboard pieces_between = total_occupancy(*b) & ray_right;
+        bitboard pieces_between = b->pieces_all & ray_right;
         clear_from(pieces_between, attacker_pos - 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
@@ -216,7 +216,7 @@ void get_pins_horizontal(board *b, color c)
 void get_pins_diagonal1(board *b, color c)
 {
     bitboard attackers = b->pieces[!c][BISHOP] | b->pieces[!c][QUEEN];
-    bitboard friendly = b->pieces_all[c];
+    bitboard friendly = b->pieces_color[c];
 
     b->pins_vertical[c] = BITBOARD_ZERO;
 
@@ -229,7 +229,7 @@ void get_pins_diagonal1(board *b, color c)
 
     if (attackers_nw) {
         int attacker_pos = ctz(attackers_nw);
-        bitboard pieces_between = total_occupancy(*b) & ray_nw;
+        bitboard pieces_between = b->pieces_all & ray_nw;
         clear_from(pieces_between, attacker_pos - 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
@@ -239,7 +239,7 @@ void get_pins_diagonal1(board *b, color c)
 
     if (attackers_se) {
         int attacker_pos = 63 - clz(attackers_se);
-        bitboard pieces_between = total_occupancy(*b) & ray_se;
+        bitboard pieces_between = b->pieces_all & ray_se;
         clear_until(pieces_between, attacker_pos + 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
@@ -251,7 +251,7 @@ void get_pins_diagonal1(board *b, color c)
 void get_pins_diagonal2(board *b, color c)
 {
     bitboard attackers = b->pieces[!c][BISHOP] | b->pieces[!c][QUEEN];
-    bitboard friendly = b->pieces_all[c];
+    bitboard friendly = b->pieces_color[c];
 
     b->pins_vertical[c] = BITBOARD_ZERO;
 
@@ -264,7 +264,7 @@ void get_pins_diagonal2(board *b, color c)
 
     if (attackers_ne) {
         int attacker_pos = ctz(attackers_ne);
-        bitboard pieces_between = total_occupancy(*b) & ray_ne;
+        bitboard pieces_between = b->pieces_all & ray_ne;
         clear_from(pieces_between, attacker_pos - 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {
@@ -274,7 +274,7 @@ void get_pins_diagonal2(board *b, color c)
 
     if (attackers_sw) {
         int attacker_pos = 63 - clz(attackers_sw);
-        bitboard pieces_between = total_occupancy(*b) & ray_sw;
+        bitboard pieces_between = b->pieces_all & ray_sw;
         clear_until(pieces_between, attacker_pos + 1);
 
         if (popcount(pieces_between) == 1 && check_bits(friendly, pieces_between)) {

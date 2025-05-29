@@ -67,7 +67,7 @@ typedef uint16_t move;
 #define move_flag(move) (((move) >> 12) & 0x000F)
 #define create_move(from, to, flag) (((move)(from)) | ((move)((to) << 6)) | ((move)((flag) << 12)))
 
-typedef enum flag1 { QUIET, DOUBLE_PUSH, SHORT_CASTLE, LONG_CASTLE, CAPTURE, ENPASSANT,
+typedef enum flag { QUIET, DOUBLE_PUSH, CASTLE_SHORT, CASTLE_LONG, CAPTURE, EN_PASSANT,
                     PROMO_KNIGHT, PROMO_BISHOP, PROMO_ROOK, PROMO_QUEEN, PROMO_KNIGHT_CAPTURE,
                     PROMO_BISHOP_CAPTURE, PROMO_ROOK_CAPTURE, PROMO_QUEEN_CAPTURE } flag;
 
@@ -90,22 +90,29 @@ typedef enum color { WHITE, BLACK } color;
 
 typedef enum piece { KING, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, NONE } piece;
 
+enum { SHORT, LONG };
+
 typedef struct board {
     bitboard pieces[2][6];
+    bitboard pieces_color[2];
+    bitboard pieces_all;
+
     bitboard attacks[2][6];
-    bitboard pieces_all[2];
     bitboard attacks_all[2];
+
     bitboard pins_vertical[2];
     bitboard pins_horizontal[2];
     bitboard pins_diagonal1[2];
     bitboard pins_diagonal2[2];
 
+    bitboard en_passant[2];
+
+    bool castling_rights[2][2];
+
     piece piece_lookup[64];
 
     move_list legal_moves;
 } board;
-
-#define total_occupancy(b) ((b).pieces_all[WHITE] | (b).pieces_all[BLACK])
 
 #define STARTING_WHITE_KING 0x0000000000000010
 #define STARTING_WHITE_PAWNS 0x000000000000ff00

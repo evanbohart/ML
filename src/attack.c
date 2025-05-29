@@ -249,7 +249,7 @@ void get_bishop_attacks(board *b, color c)
         int pos = ctz(bishops);
         clear_bit(bishops, pos);
 
-        int index = bishop_hash(total_occupancy(*b), pos);
+        int index = bishop_hash(b->pieces_all, pos);
 
         set_bits(b->attacks[c][BISHOP], bishop_attack_table[pos][index]);
     }
@@ -267,7 +267,7 @@ void get_rook_attacks(board *b, color c)
         int pos = ctz(rooks);
         clear_bit(rooks, pos);
 
-        int index = rook_hash(total_occupancy(*b), pos);
+        int index = rook_hash(b->pieces_all, pos);
 
         set_bits(b->attacks[c][ROOK], rook_attack_table[pos][index]);
     }
@@ -285,8 +285,8 @@ void get_queen_attacks(board *b, color c)
         int pos = ctz(queens);
         clear_bit(queens, pos);
 
-        int bishop_table_index = bishop_hash(total_occupancy(*b), pos);
-        int rook_table_index = rook_hash(total_occupancy(*b), pos);
+        int bishop_table_index = bishop_hash(b->pieces_all, pos);
+        int rook_table_index = rook_hash(b->pieces_all, pos);
 
         set_bits(b->attacks[c][QUEEN], bishop_attack_table[pos][bishop_table_index] |
                                        rook_attack_table[pos][rook_table_index]);

@@ -11,10 +11,11 @@ CUBE_C_SRCS = src/mat.c src/tens.c src/net.c src/cnet.c src/utils.c
 CUBE_CPP_SRCS = src/cube.cpp src/cube_model.cpp src/cube_ai.cpp src/cube_utils.cpp
 CUBE_OBJS = $(CUBE_C_SRCS:src/%.c=obj/%.o) $(CUBE_CPP_SRCS:src/%.cpp=obj/%.o)
 
-CHESS_SRCS = src/board.c src/move.c src/attack.c src/magic.c src/pin.c src/test.c
+CHESS_SRCS = src/mat.c src/tens.c src/dense_layer.c src/conv_layer.c src/nn.c src/utils.c \
+			 src/board.c src/move.c src/attack.c src/magic.c src/pin.c src/test.c
 CHESS_OBJS = $(CHESS_SRCS:src/%.c=obj/%.o)
 
-all: cube img chess
+all: chess
 
 obj:
 	mkdir -p obj

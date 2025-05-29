@@ -9,7 +9,7 @@ void draw_bitboard(bitboard b)
         printf("%d ", i + 1);
 
         for (int j = 0; j < 8; ++j) {
-            printf("%llu ", b >> (i * 8 + j) & 1ULL);
+            printf("%llu ", b >> (i * 8 + j) & BITBOARD_ONE);
         }
 
         printf("\n");
@@ -35,19 +35,29 @@ board init_board(void)
     b.pieces[BLACK][ROOK] = STARTING_BLACK_ROOKS;
     b.pieces[BLACK][QUEEN] = STARTING_BLACK_QUEENS;
 
-    b.pieces_all[WHITE] = b.pieces[WHITE][KING] | b.pieces[WHITE][PAWN] | b.pieces[WHITE][KNIGHT] |
+    b.pieces_color[WHITE] = b.pieces[WHITE][KING] | b.pieces[WHITE][PAWN] | b.pieces[WHITE][KNIGHT] |
                           b.pieces[WHITE][BISHOP] | b.pieces[WHITE][ROOK] | b.pieces[WHITE][QUEEN];
-    b.pieces_all[BLACK] = b.pieces[BLACK][KING] | b.pieces[BLACK][PAWN] | b.pieces[BLACK][KNIGHT] |
+    b.pieces_color[BLACK] = b.pieces[BLACK][KING] | b.pieces[BLACK][PAWN] | b.pieces[BLACK][KNIGHT] |
                           b.pieces[BLACK][BISHOP] | b.pieces[BLACK][ROOK] | b.pieces[BLACK][QUEEN];
 
-    b.pins_vertical[WHITE] = 0ULL;
-    b.pins_horizontal[WHITE] = 0ULL;
-    b.pins_diagonal1[WHITE] = 0ULL;
-    b.pins_diagonal2[WHITE] = 0ULL;
-    b.pins_vertical[BLACK] = 0ULL;
-    b.pins_horizontal[BLACK] = 0ULL;
-    b.pins_diagonal1[BLACK] = 0ULL;
-    b.pins_diagonal2[BLACK] = 0ULL;
+    b.pieces_all = b.pieces_color[WHITE] | b.pieces_color[BLACK];
+
+    b.pins_vertical[WHITE] = BITBOARD_ZERO;
+    b.pins_horizontal[WHITE] = BITBOARD_ZERO;
+    b.pins_diagonal1[WHITE] = BITBOARD_ZERO;
+    b.pins_diagonal2[WHITE] = BITBOARD_ZERO;
+    b.pins_vertical[BLACK] = BITBOARD_ZERO;
+    b.pins_horizontal[BLACK] = BITBOARD_ZERO;
+    b.pins_diagonal1[BLACK] = BITBOARD_ZERO;
+    b.pins_diagonal2[BLACK] = BITBOARD_ZERO;
+
+    b.en_passant[WHITE] = BITBOARD_ZERO;
+    b.en_passant[BLACK] = BITBOARD_ZERO;
+
+    b.castling_rights[WHITE][0] = true;
+    b.castling_rights[WHITE][1] = true;
+    b.castling_rights[BLACK][0] = true;
+    b.castling_rights[BLACK][1] = true;
 
     init_piece_lookup(b.piece_lookup);
 
@@ -95,21 +105,82 @@ void apply_move(board *b, color c, move m)
     int to = move_to(m);
     int flag = move_flag(m);
 
+    int king_pos = c ? 60 : 4;
+    int short_rook_pos = c ? 63 : 7;
+    int long_rook_pos = c ? 56 : 0;
+
+    if (from == king_pos) {
+        b->castling_rights[c][0] = false;
+        b->castling_rights[c][1] = false;
+    }
+    else if (from == short_rook_pos) {
+        b->castling_rights[c][0] = false;
+    }
+    else if (from == long_rook_pos) {
+        b->castling_rights[c][1] = false;
+    }
+
+    b->en_passant[!c] = BITBOARD_ZERO;
+    if (flag == DOUBLE_PUSH) {
+        int dir = c ? -1 : 1;
+        set_bit(b->en_passant[!c], to - 8 * dir);
+    }
+
+    if (flag == CASTLE_SHORT) {
+        int rook_from = c ? 63 : 7;
+        int rook_to = rook_from - 2;
+
+        clear_bit(b->pieces[c][ROOK], rook_from);
+        clear_bit(b->pieces_color[c], rook_from);
+        clear_bit(b->pieces_all, rook_from);
+        b->piece_lookup[rook_from] = NONE;
+
+        set_bit(b->pieces[c][ROOK], rook_to);
+        set_bit(b->pieces_color[c], rook_to);
+        set_bit(b->pieces_all, rook_to);
+        b->piece_lookup[rook_to] = ROOK;
+    }
+
+    if (flag == CASTLE_LONG) {
+        int rook_from = c ? 56 : 0;
+        int rook_to = rook_from + 3;
+
+        clear_bit(b->pieces[c][ROOK], rook_from);
+        clear_bit(b->pieces_color[c], rook_from);
+        clear_bit(b->pieces_all, rook_from);
+        b->piece_lookup[rook_from] = NONE;
+
+        set_bit(b->pieces[c][ROOK], rook_to);
+        set_bit(b->pieces_color[c], rook_to);
+        set_bit(b->pieces_all, rook_to);
+        b->piece_lookup[rook_to] = ROOK;
+    }
+
     if (flag == CAPTURE) {
         piece captured_piece = b->piece_lookup[to];
+        clear_bit(b->pieces[!c][captured_piece], to);
+        clear_bit(b->pieces_color[!c], to);
+        clear_bit(b->pieces_all, to);
+    }
 
-        clear_bit(b->pieces[c][captured_piece], to);
-        clear_bit(b->pieces_all[c], to);
+    if (flag == EN_PASSANT) {
+        int dir = c ? -1 : 1;
+        clear_bit(b->pieces[!c][PAWN], to - 8 * dir);
+        clear_bit(b->pieces_color[!c], to - 8 * dir);
+        clear_bit(b->pieces_all, to - 8 * dir);
+        b->piece_lookup[to - 8 * dir] = NONE;
     }
 
     piece moving_piece = b->piece_lookup[from];
 
     clear_bit(b->pieces[c][moving_piece], from);
-    clear_bit(b->pieces_all[c], from);
+    clear_bit(b->pieces_color[c], from);
+    clear_bit(b->pieces_all, from);
     b->piece_lookup[from] = NONE;
 
     set_bit(b->pieces[c][moving_piece], to);
-    set_bit(b->pieces_all[c], to);
+    set_bit(b->pieces_color[c], to);
+    set_bit(b->pieces_all, to);
     b->piece_lookup[to] = moving_piece;
 }
 
@@ -146,7 +217,7 @@ void draw_board(board *b)
             if (piece_index == NONE) {
                 piece = '.';
             }
-            else if (check_bit(b->pieces_all[WHITE], pos)) {
+            else if (check_bit(b->pieces_color[WHITE], pos)) {
                 piece = toupper(piece_chars[piece_index]);
             }
             else {

@@ -100,8 +100,6 @@ void tens_scale(tens destination, tens t, double a)
 
 void tens_func(tens destination, tens t, func f)
 {
-    assert(destination.rows == t.rows);
-    assert(destination.cols == t.cols);
     assert(destination.depth == t.depth);
 
     for (int i = 0; i < destination.depth; ++i) {
@@ -159,7 +157,7 @@ void tens_flatten(mat destination, tens t)
     for (int i = 0; i < t.depth; ++i) {
         for (int j = 0; j < t.rows; ++j) {
             for (int k = 0; k < t.cols; ++k) {
-                mat_at(destination, index++, 0) = mat_at(t.mats[i], j, k);
+                mat_at(destination, index++, 0) = tens_at(t, j, k, i);
             }
         }
     }

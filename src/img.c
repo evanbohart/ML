@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
+#include <time.h>
 #include "nn.h"
 #include "utils.h"
 
@@ -21,10 +21,9 @@ int read_next_img(FILE *f, tens input)
     return target;
 }
 
-void train(cnet cn, net n, char *path)
+int main(void)
 {
-    cnet_he(cn);
-    net_he(n);
+    srand(time(0));
 
     char files[5][100];
     get_path(files[0], "cifar-10-batches-bin\\data_batch_1.bin");
@@ -33,111 +32,63 @@ void train(cnet cn, net n, char *path)
     get_path(files[3], "cifar-10-batches-bin\\data_batch_4.bin");
     get_path(files[4], "cifar-10-batches-bin\\data_batch_5.bin");
 
-    tens cn_inputs = tens_alloc(32, 32, 3);
-    mat n_inputs = mat_alloc(16, 1);
-    mat delta = mat_alloc(16, 1);
+    nn net = nn_alloc(8);
+    padding_t same = { 1, 1, 1, 1 };
+
+    nn_add_layer(&net, conv_layer_alloc(32, 32, 3, 3, 32, 1, same, 1, RELU));
+    nn_add_layer(&net, conv_layer_alloc(32, 32, 32, 3, 32, 1, same, 2, RELU));
+    nn_add_layer(&net, conv_layer_alloc(16, 16, 32, 3, 64, 1, same, 1, RELU));
+    nn_add_layer(&net, conv_layer_alloc(16, 16, 64, 3, 64, 1, same, 2, RELU));
+    nn_add_layer(&net, conv_layer_alloc(8, 8, 64, 3, 128, 1, same, 1, RELU));
+    nn_add_layer(&net, conv_layer_alloc(8, 8, 128, 3, 128, 1, same, 2, RELU));
+    nn_add_layer(&net, dense_layer_alloc(2048, 128, RELU));
+    nn_add_layer(&net, dense_layer_alloc(128, 10, SOFTMAX));
+
+    nn_he(net);
+
+    tens inputs = tens_alloc(32, 32, 3);
+    void *outputs = NULL;
     mat targets = mat_alloc(10, 1);
-    int target_index;
-    int epoch = 0;
+    mat grad_in = mat_alloc(10, 1);
+    void *grad_out = NULL;
+    int prediction;
+    int actual;
 
     for (int i = 0; i < 6; ++i) {
         FILE *f = fopen(files[i], "rb");
-        while ((target_index = read_next_img(f, cn_inputs)) != -1) {
-            cnet_forward(cn, cn_inputs);
-            tens_flatten(n_inputs, cn.acts[cn.layers - 2]);
-            net_forward(n, n_inputs);
 
-            int predicted;
-            for (int i = 0; i < n.acts[n.layers - 2].rows; ++i) {
-                int max = mat_max(n.acts[n.layers - 2]);
-                if (mat_at(n.acts[n.layers - 2], i, 0) == max) {
-                    predicted = i;
-                    break;
+        while ((actual = read_next_img(f, inputs)) != -1) {
+            nn_forward(net, &inputs, &outputs);
+            mat *predicted = (mat *)outputs;
+
+            double max = 0;
+            for (int i = 0; i < 10; ++i) {
+                if (mat_at(*predicted, i, 0) > max) {
+                    max = mat_at(*predicted, i, 0);
+                    prediction = i;
                 }
             }
 
+            printf("Predicted: %d | Actual: %d\n", prediction, actual);
+
             mat_fill(targets, 0);
-            mat_at(targets, target_index, 0) = 1;
+            mat_at(targets, actual, 0) = 1;
 
-            net_backprop(n, n_inputs, targets, 1e-3, delta);
-            cnet_backprop(cn, cn_inputs, delta, 1e-3);
+            mat_sub(grad_in, *predicted, targets);
 
-            printf("File %d | Epoch %d | Predicted %d | Actual %d\n", i, ++epoch, predicted, target_index);
+            nn_backprop(net, &grad_in, &grad_out, 1e-3);
+            tens *input_grad = (tens *)grad_out;
+
+            free(predicted->vals);
+            tens_destroy(input_grad);
         }
+
+        fclose(f);
     }
 
+    tens_destroy(&inputs);
     free(targets.vals);
-    free(delta.vals);
-    free(n_inputs.vals);
-    tens_destroy(&cn_inputs);
+    free(grad_in.vals);
 
-    FILE *f = fopen(path, "wb");
-    cnet_save(cn, f);
-    net_save(n, f);
-}
-
-void showcase()
-{
-
-}
-
-int main(int argc, char **argv)
-{
-    int cn_layers = 16;
-    int cn_filter_size = 3;
-
-    mat cn_convolutions = mat_alloc(cn_layers - 1, 1);
-    mat_fill(cn_convolutions, 16);
-
-    mat cn_input_dims = mat_alloc(3, 1);
-    mat_at(cn_input_dims, 0, 0) = 32;
-    mat_at(cn_input_dims, 1, 0) = 32;
-    mat_at(cn_input_dims, 2, 0) = 3;
-
-    cnet cn = cnet_alloc(cn_layers, cn_convolutions, cn_input_dims, cn_filter_size);
-
-    for (int i = 0; i < cn_layers - 1; ++i) {
-        cn.actfuncs[i] = RELU;
-    }
-
-    int n_layers = 4;
-
-    mat n_topology = mat_alloc(n_layers, 1);
-    mat_at(n_topology, 0, 0) = 16;
-    mat_at(n_topology, 1, 0) = 64;
-    mat_at(n_topology, 2, 0) = 128;
-    mat_at(n_topology, 3, 0) = 10;
-
-    net n = net_alloc(n_layers, n_topology);
-
-    for (int i = 0; i < n_layers - 2; ++i) {
-        n.actfuncs[i] = RELU;
-    }
-
-    n.actfuncs[n_layers - 2] = SOFTMAX;
-
-    char path[100];
-
-    if (argc != 3) {
-        printf("Usage: %s <mode> <arguments>\n", argv[0]);
-    }
-    else if (strcmp(argv[1], "train") == 0) {
-        get_path(path, argv[2]);
-        train(cn, n, path);
-    }
-    else if (strcmp(argv[1], "showcase") == 0) {
-        get_path(path, argv[2]);
-        showcase(cn, n, path);
-    }
-    else {
-        printf("Usage: %s <mode> <arguments>\n", argv[0]);
-    }
-
-    free(cn_convolutions.vals);
-    free(cn_input_dims.vals);
-
-    cnet_destroy(&cn);
-    net_destroy(&n);
-
-    return 0;
+    nn_destroy(net);
 }

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 #include "nn.h"
 
 layer conv_layer_alloc(int input_rows, int input_cols, int input_channels,
@@ -21,7 +22,7 @@ layer conv_layer_alloc(int input_rows, int input_cols, int input_channels,
         cl->filters[i] = tens_alloc(filter_size, filter_size, input_channels);
     }
 
-    cl->biases = tens_alloc(conv_rows, conv_cols, input_channels);
+    cl->biases = tens_alloc(conv_rows, conv_cols, convolutions);
 
     cl->activation = activation;
     cl->input_rows = input_rows;
@@ -30,8 +31,7 @@ layer conv_layer_alloc(int input_rows, int input_cols, int input_channels,
     cl->conv_rows = conv_rows;
     cl->conv_cols = conv_cols;
     cl->output_rows = conv_rows / pooling_size;
-    cl->output_cols = conv_rows / pooling_size;
-    cl->output_channels = convolutions;
+    cl->output_cols = conv_cols / pooling_size;
     cl->filter_size = filter_size;
     cl->convolutions = convolutions;
     cl->stride = stride;
@@ -48,6 +48,9 @@ layer conv_layer_alloc(int input_rows, int input_cols, int input_channels,
     l.forward = conv_forward;
     l.backprop = conv_backprop;
     l.destroy = conv_destroy;
+    l.he = conv_he;
+    l.glorot = conv_glorot;
+    l.print = conv_print;
 
     return l;
 }
@@ -58,10 +61,10 @@ void conv_forward(layer l, void *inputs, void **outputs)
     tens *tens_in = (tens *)inputs;
     tens *tens_out = malloc(sizeof(tens));
 
-    tens padded = tens_alloc(cl->input_rows + cl->padding[TOP] + cl->padding[BOTTOM],
+    tens grad_padded = tens_alloc(cl->input_rows + cl->padding[TOP] + cl->padding[BOTTOM],
                              cl->input_cols + cl->padding[LEFT] + cl->padding[RIGHT],
                              cl->input_channels);
-    tens_pad(padded, *tens_in, cl->padding);
+    tens_pad(grad_padded, *tens_in, cl->padding);
 
     mat convolved = mat_alloc(cl->conv_rows, cl->conv_cols);
 
@@ -69,14 +72,14 @@ void conv_forward(layer l, void *inputs, void **outputs)
 
     for (int i = 0; i < cl->convolutions; ++i) {
         for (int j = 0; j < cl->input_channels; ++j) {
-            mat_convolve(convolved, padded.mats[j], cl->filters[i].mats[j]);
+            mat_convolve(convolved, grad_padded.mats[j], cl->filters[i].mats[j]);
             mat_add(cl->lins_cache.mats[i], cl->lins_cache.mats[i], convolved);
         }
     }
 
     tens_add(cl->lins_cache, cl->lins_cache, cl->biases);
 
-    tens activated = tens_alloc(cl->output_rows, cl->output_cols, cl->convolutions);
+    tens activated = tens_alloc(cl->conv_rows, cl->conv_cols, cl->convolutions);
 
     switch (cl->activation) {
         case SIGMOID:
@@ -89,10 +92,7 @@ void conv_forward(layer l, void *inputs, void **outputs)
             break;
     }
  
-    *tens_out = tens_alloc(cl->output_rows / cl->pooling_size,
-                           cl->output_cols / cl->pooling_size,
-                           cl->convolutions);
-
+    *tens_out = tens_alloc(cl->output_rows, cl->output_cols, cl->convolutions);
     tens_maxpool(*tens_out, cl->pooling_mask, activated, cl->pooling_size);
 
     *outputs = tens_out;
@@ -104,7 +104,8 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
     tens *tens_in = (tens *)grad_in;
     tens *tens_out = malloc(sizeof(tens));
 
-    tens lins_deriv = tens_alloc(cl->lins_cache.rows, cl->lins_cache.cols, cl->convolutions);
+    tens lins_deriv = tens_alloc(cl->conv_rows, cl->conv_cols, cl->convolutions);
+
     switch (cl->activation) {
         case SIGMOID:
             tens_func(lins_deriv, cl->lins_cache, dsig);
@@ -122,38 +123,47 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
     tens grad = tens_alloc(cl->conv_rows, cl->conv_cols, cl->convolutions);
     tens_had(grad, unpooled, lins_deriv);
 
-    padding_t padding = { cl->filter_size - 1, cl->filter_size - 1, 
-                          cl->filter_size - 1, cl->filter_size - 1 };
+    padding_t padding = { cl->filter_size - 1 - cl->padding[TOP],
+                          cl->filter_size - 1 - cl->padding[BOTTOM],
+                          cl->filter_size - 1 - cl->padding[LEFT],
+                          cl->filter_size - 1 - cl->padding[RIGHT] };
 
-    tens padded = tens_alloc(grad.rows + padding[TOP] + padding[BOTTOM],
-                             grad.cols + padding[LEFT] + padding[RIGHT],
+    tens grad_padded = tens_alloc(cl->conv_rows + padding[TOP] + padding[BOTTOM],
+                             cl->conv_cols + padding[LEFT] + padding[RIGHT],
                              cl->convolutions);
-    tens_pad(padded, grad, padding);
+    tens_pad(grad_padded, grad, padding);
 
     mat filter_trans = mat_alloc(cl->filter_size, cl->filter_size);
+    mat filter_180 = mat_alloc(cl->filter_size, cl->filter_size);
     mat convolved = mat_alloc(cl->input_rows, cl->input_cols);
 
-    *tens_out = tens_alloc(cl->input_rows, cl->input_cols, cl->convolutions);
+    *tens_out = tens_alloc(cl->input_rows, cl->input_cols, cl->input_channels);
     tens_fill(*tens_out, 0);
 
     for (int i = 0; i < cl->convolutions; ++i) {
         for (int j = 0; j < cl->input_channels; ++j) {
             mat_trans(filter_trans, cl->filters[i].mats[j]);
-            mat_convolve(convolved, padded.mats[j], filter_trans);
-
-            mat_add(tens_out->mats[i], tens_out->mats[i], convolved);
+            mat_trans(filter_180, filter_trans);
+            mat_convolve(convolved, grad_padded.mats[i], filter_180);
+            mat_add(tens_out->mats[j], tens_out->mats[j], convolved);
         }
     }
 
     *grad_out = tens_out;
 
+    tens inputs_padded = tens_alloc(cl->input_rows + padding[TOP] + padding[BOTTOM],
+                                    cl->input_cols + padding[LEFT] + padding[RIGHT],
+                                    cl->input_channels);
+    tens_pad(inputs_padded, cl->input_cache, padding);
+
     for (int i = 0; i < cl->convolutions; ++i) {
         tens dw = tens_alloc(cl->filters[i].rows, cl->filters[i].cols, cl->filters[i].depth);
 
         for (int j = 0; j < cl->input_channels; ++j) {
-            mat_convolve(dw.mats[j], cl->input_cache.mats[j], grad.mats[i]);
+            mat_convolve(dw.mats[j], inputs_padded.mats[j], grad.mats[i]);
         }
 
+        tens_func(dw, dw, clip);
         tens_scale(dw, dw, rate);
         tens_sub(cl->filters[i], cl->filters[i], dw);
 
@@ -163,15 +173,18 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
     tens db = tens_alloc(grad.rows, grad.cols, cl->convolutions);
     tens_copy(db, grad);
 
+    tens_func(db, db, clip);
     tens_scale(db, db, rate);
     tens_sub(cl->biases, cl->biases, db);
 
     tens_destroy(&lins_deriv);
     tens_destroy(&unpooled);
     tens_destroy(&grad);
-    tens_destroy(&padded);
+    tens_destroy(&grad_padded);
     free(filter_trans.vals);
+    free(filter_180.vals);
     free(convolved.vals);
+    tens_destroy(&inputs_padded);
     tens_destroy(&db);
 }
 
@@ -192,3 +205,36 @@ void conv_destroy(layer l)
     free(cl);
 }
 
+void conv_he(layer l)
+{
+    conv_layer *cl = (conv_layer *)l.data;
+
+    for (int i = 0; i < cl->convolutions; ++i) {
+        tens_normal(cl->filters[i], 0, sqrt(2.0 / (cl->input_channels * cl->filter_size * cl->filter_size)));
+    }
+
+    tens_fill(cl->biases, 0);
+}
+
+void conv_glorot(layer l)
+{
+    conv_layer *cl = (conv_layer *)l.data;
+
+    for (int i = 0; i < cl->convolutions; ++i) {
+        tens_normal(cl->filters[i], 0, sqrt(2.0 / (cl->input_channels * cl->filter_size * cl->filter_size +
+                                                   cl->convolutions * cl->filter_size * cl->filter_size)));
+    }
+
+    tens_fill(cl->biases, 0);
+}
+
+void conv_print(layer l)
+{
+    conv_layer *cl = (conv_layer *)l.data;
+
+    for (int i = 0; i < cl->convolutions; ++i) {
+        tens_print(cl->filters[i]);
+    }
+
+    tens_print(cl->biases);
+}

@@ -247,7 +247,7 @@ void mat_convolve(mat destination, mat m, mat filter)
     free(had.vals);
 }
 
-void mat_maxpool(mat destination, mat mask, mat m, int pooling_size) 
+void mat_maxpool(mat destination, mat mask, mat m, int pooling_size)
 {
     assert(destination.rows == m.rows / pooling_size);
     assert(destination.cols == m.cols / pooling_size);
@@ -312,6 +312,21 @@ void mat_maxunpool(mat destination, mat mask, mat m, int pooling_size)
     }
 
     free(filter.vals);
+}
+
+void mat_unflatten(tens destination, mat m)
+{
+    assert(destination.rows * destination.cols * destination.depth == m.rows);
+    assert(m.cols == 1);
+
+    int index = 0;
+    for (int i = 0; i < destination.depth; ++i) {
+        for (int j = 0; j < destination.rows; ++j) {
+            for (int k = 0; k < destination.cols; ++k) {
+                tens_at(destination, j, k, i) = mat_at(m, index++, 0);
+            }
+        }
+    }
 }
 
 void mat_print(mat m)

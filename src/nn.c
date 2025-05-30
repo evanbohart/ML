@@ -48,15 +48,13 @@ void nn_add_layer(nn *n, layer l)
             assert(cl_prev->output_cols == cl_new->input_cols);
             assert(cl_prev->convolutions == cl_new->input_channels);
         }
-
         else if (prev_type == CONV && new_type == DENSE) {
             conv_layer *cl_prev = (conv_layer *)prev->data;
             dense_layer *dl_new = (dense_layer *)l.data;
 
             assert(cl_prev->output_rows * cl_prev->output_cols *
-                cl_prev->convolutions == dl_new->input_size);
+                   cl_prev->convolutions == dl_new->input_size);
         }
-
         else {
             dense_layer *dl_prev = (dense_layer *)prev->data;
             dense_layer *dl_new = (dense_layer *)l.data;
@@ -70,35 +68,88 @@ void nn_add_layer(nn *n, layer l)
 
 void nn_forward(nn n, void *inputs, void **outputs)
 {
-    void *current_input = inputs;
-    void *current_output;
+    void *current_inputs = inputs;
+    void *current_outputs;
 
     for (int i = 0; i < n.num_layers; ++i) {
-        current_output = NULL;
+        current_outputs = NULL;
 
-        switch (n.layers[i].type) {
-            case DENSE:
-                if (i > 0 && n.layers[i - 1].type == CONV) {
-                    tens *tens_input = (tens *)current_input;
-                    mat flattened = mat_alloc(tens_input->rows * tens_input->cols * tens_input->depth, 1);
-                    tens_flatten(flattened, *tens_input);
-                    current_input = &flattened;
-                }
+        if (i > 0 && n.layers[i - 1].type == CONV && n.layers[i].type == DENSE) {
+            tens *inputs_tens = (tens *)current_inputs;
+            mat *flattened = malloc(sizeof(mat));
+            *flattened = mat_alloc(inputs_tens->rows * inputs_tens->cols * inputs_tens->depth, 1);
 
-                dense_forward(n.layers[i], current_input, &current_output);
-                break;
-            case CONV:
-                conv_forward(n.layers[i], current_input, &current_output);
-                break;
+            tens_flatten(*flattened, *inputs_tens);
+
+            current_inputs = flattened;
         }
 
-        if (i > 0) free(current_input);
+        n.layers[i].forward(n.layers[i], current_inputs, &current_outputs);
 
-        current_input = current_output;
+        if (i > 0) free(current_inputs);
+
+        current_inputs = current_outputs;
     }
 
-    *outputs = current_output;
+    *outputs = current_outputs;
 }
 
-void nn_backprop(nn n, void *grad_in, void **grad_out, double rate);
-void nn_destroy(nn n);
+void nn_backprop(nn n, void *grad_in, void **grad_out, double rate)
+{
+    void *current_grad_in = grad_in;
+    void *current_grad_out;
+
+    for (int i = n.num_layers - 1; i >= 0; --i) {
+        current_grad_out = NULL;
+
+        if (i < n.num_layers - 1 && n.layers[i + 1].type == DENSE && n.layers[i].type == CONV) {
+            mat *grad_in_mat = (mat *)current_grad_in;
+            tens *unflattened = malloc(sizeof(tens));
+
+            conv_layer *cl = (conv_layer *)n.layers[i].data;
+            *unflattened = tens_alloc(cl->output_rows, cl->output_cols, cl->convolutions);
+
+            mat_unflatten(*unflattened, *grad_in_mat);
+
+            current_grad_in = unflattened;
+        }
+
+        n.layers[i].backprop(n.layers[i], current_grad_in, &current_grad_out, rate); 
+
+        if (i < n.num_layers - 1) free(current_grad_in);
+
+        current_grad_in = current_grad_out;
+    }
+
+    *grad_out = current_grad_out;
+}
+
+void nn_destroy(nn n)
+{
+    for (int i = 0; i < n.num_layers; ++i) {
+        n.layers[i].destroy(n.layers[i]);
+    }
+
+    free(n.layers);
+}
+
+void nn_he(nn n)
+{
+    for (int i = 0; i < n.num_layers; ++i) {
+        n.layers[i].he(n.layers[i]);
+    }
+}
+
+void nn_glorot(nn n)
+{
+    for (int i = 0; i < n.num_layers; ++i) {
+        n.layers[i].glorot(n.layers[i]);
+    }
+}
+
+void nn_print(nn n)
+{
+    for (int i = 0; i < n.num_layers; ++i) {
+        n.layers[i].print(n.layers[i]);
+    }
+}

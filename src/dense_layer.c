@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <math.h>
 #include "nn.h"
 
 layer dense_layer_alloc(int input_size, int output_size, actfunc activation)
@@ -19,6 +20,9 @@ layer dense_layer_alloc(int input_size, int output_size, actfunc activation)
     l.forward = dense_forward;
     l.backprop = dense_backprop;
     l.destroy = dense_destroy;
+    l.he = dense_he;
+    l.glorot = dense_glorot;
+    l.print = dense_print;
 
     return l;
 }
@@ -58,33 +62,37 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, double rate)
     mat *mat_out = malloc(sizeof(mat));
 
     mat lins_deriv = mat_alloc(dl->output_size, 1);
+    mat grad_current = mat_alloc(dl->output_size, 1);
 
     switch (dl->activation) {
         case SIGMOID:
             mat_func(lins_deriv, dl->lins_cache, dsig);
+            mat_had(grad_current, *mat_in, lins_deriv);
             break;
         case RELU:
             mat_func(lins_deriv, dl->lins_cache, drelu);
+            mat_had(grad_current, *mat_in, lins_deriv);
             break;
         case SOFTMAX:
+            mat_copy(grad_current, *mat_in);
             break;
     }
-
-    mat grad_current = mat_alloc(lins_deriv.rows, lins_deriv.cols);
-    mat_had(grad_current, *mat_in, lins_deriv);
 
     mat input_trans = mat_alloc(1, dl->input_size);
     mat_trans(input_trans, dl->input_cache);
 
     mat dw = mat_alloc(grad_current.rows, input_trans.cols);
     mat_dot(dw, grad_current, input_trans);
+
+    mat_func(dw, dw, clip);
     mat_scale(dw, dw, rate);
+    mat_sub(dl->weights, dl->weights, dw);
 
     mat db = mat_alloc(grad_current.rows, grad_current.cols);
     mat_copy(db, grad_current);
-    mat_scale(db, db, rate);
 
-    mat_sub(dl->weights, dl->weights, dw);
+    mat_func(db, db, clip);
+    mat_scale(db, db, rate);
     mat_sub(dl->biases, dl->biases, db);
 
     mat weights_trans = mat_alloc(dl->weights.cols, dl->weights.rows);
@@ -113,18 +121,26 @@ void dense_destroy(layer l)
     free(dl);
 }
 
-void dense_layer_glorot(layer l)
+void dense_he(layer l)
 {
     dense_layer *dl = (dense_layer *)l.data;
 
-    mat_normal(dl->weights, 0, 2 / (dl->input_size + dl->output_size));
+    mat_normal(dl->weights, 0, sqrt(2.0 / dl->input_size));
     mat_fill(dl->biases, 0);
 }
 
-void dense_layer_he(layer l)
+void dense_glorot(layer l)
 {
     dense_layer *dl = (dense_layer *)l.data;
 
-    mat_normal(dl->weights, 0, 2 / dl->input_size);
+    mat_normal(dl->weights, 0, sqrt(2.0 / (dl->input_size + dl->output_size)));
     mat_fill(dl->biases, 0);
+}
+
+void dense_print(layer l)
+{
+    dense_layer *dl = (dense_layer *)l.data;
+
+    mat_print(dl->weights);
+    mat_print(dl->biases);
 }

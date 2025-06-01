@@ -13,25 +13,8 @@ mat mat_alloc(int rows, int cols)
 	m.cols = cols;
 
 	m.vals = malloc(rows * cols * sizeof(double));
-	assert(m.vals);
 
 	return m;
-}
-
-int mat_compare(mat m1, mat m2)
-{
-	assert(m1.rows == m2.rows);
-	assert(m1.cols == m2.cols);
-
-	for (int i = 0; i < m1.rows; ++i) {
-		for (int j = 0; j < m1.cols; ++j) {
-			if (mat_at(m1, i, j) != mat_at(m2, i, j)) {
-				return 0;
-			}
-		}
-	}
-
-	return 1;
 }
 
 void mat_rand(mat m, double min, double max)
@@ -172,23 +155,23 @@ void mat_softmax(mat destination, mat m)
     assert(destination.rows == m.rows);
     assert(destination.cols == m.cols);
 
-    double max = -DBL_MAX;
-    for (int i = 0; i < m.rows; ++i) {
-        for (int j = 0; j < m.cols; ++j) {
-            if (mat_at(m, i, j) > max) max = mat_at(m, i, j);
+    for (int i = 0; i < m.cols; ++i) {
+        double max = -DBL_MAX;
+        for (int j = 0; j < m.rows; ++j) {
+            if (mat_at(m, j, i) > max) max = mat_at(m, j, i);
         }
-    }
 
-    double sum = 0;
-    for (int i = 0; i < destination.rows; ++i) {
-        for (int j = 0; j < destination.cols; ++j) {
-            double val = exp(mat_at(m, i, j) - max);
-            mat_at(destination, i, j) = val;
+        double sum = 0;
+        for (int j = 0; j < destination.rows; ++j) {
+            double val = exp(mat_at(m, j, i) - max);
+            mat_at(destination, j, i) = val;
             sum += val;
         }
-    }
 
-    mat_scale(destination, destination, 1 / sum);
+        for (int j = 0; j < destination.rows; ++j) {
+            mat_at(destination, j, i) /= sum;
+        }
+    }
 }
 
 void mat_pad(mat destination, mat m, padding_t padding)
@@ -219,7 +202,7 @@ void mat_filter(mat destination, mat m, int row, int col)
     }
 }
 
-void mat_convolve(mat destination, mat m, mat filter)
+void mat_convolve_mat(mat destination, mat m, mat filter)
 {
     assert(destination.rows == m.rows - filter.rows + 1);
     assert(destination.cols == m.cols - filter.cols + 1);
@@ -247,7 +230,7 @@ void mat_convolve(mat destination, mat m, mat filter)
     free(had.vals);
 }
 
-void mat_maxpool(mat destination, mat mask, mat m, int pooling_size)
+void mat_maxpool(mat destination, mat m, mat mask, int pooling_size)
 {
     assert(destination.rows == m.rows / pooling_size);
     assert(destination.cols == m.cols / pooling_size);
@@ -286,7 +269,7 @@ void mat_maxpool(mat destination, mat mask, mat m, int pooling_size)
     free(filter.vals);
 }
 
-void mat_maxunpool(mat destination, mat mask, mat m, int pooling_size)
+void mat_maxunpool(mat destination, mat m, mat mask, int pooling_size)
 {
     assert(destination.rows == mask.rows);
     assert(destination.cols == mask.cols);
@@ -314,16 +297,20 @@ void mat_maxunpool(mat destination, mat mask, mat m, int pooling_size)
     free(filter.vals);
 }
 
-void mat_unflatten(tens destination, mat m)
+void mat_unflatten(tens4D destination, mat m)
 {
     assert(destination.rows * destination.cols * destination.depth == m.rows);
-    assert(m.cols == 1);
+    assert(destination.batches == m.cols);
 
     int index = 0;
     for (int i = 0; i < destination.depth; ++i) {
         for (int j = 0; j < destination.rows; ++j) {
             for (int k = 0; k < destination.cols; ++k) {
-                tens_at(destination, j, k, i) = mat_at(m, index++, 0);
+                for (int l = 0; l < destination.batches; ++l) {
+                    tens4D_at(destination, j, k, i, l) = mat_at(m, index, l);
+                }
+
+                ++index;
             }
         }
     }
@@ -341,13 +328,13 @@ void mat_print(mat m)
 	}
 }
 
-void mat_load(mat *m, FILE *f)
+void mat_load(mat m, FILE *f)
 {
     assert(f != NULL);
 
-    fread(&m->rows, sizeof(int), 1, f);
-    fread(&m->cols, sizeof(int), 1, f);
-    fread(m->vals, sizeof(double), m->rows * m->cols, f);
+    fread(&m.rows, sizeof(int), 1, f);
+    fread(&m.cols, sizeof(int), 1, f);
+    fread(m.vals, sizeof(double), m.rows * m.cols, f);
 }
 
 void mat_save(mat m, FILE *f)

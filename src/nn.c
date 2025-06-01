@@ -47,6 +47,7 @@ void nn_add_layer(nn *n, layer l)
             assert(cl_prev->output_rows == cl_new->input_rows);
             assert(cl_prev->output_cols == cl_new->input_cols);
             assert(cl_prev->convolutions == cl_new->input_channels);
+            assert(cl_prev->batch_size == cl_new->batch_size);
         }
         else if (prev_type == CONV && new_type == DENSE) {
             conv_layer *cl_prev = (conv_layer *)prev->data;
@@ -54,12 +55,14 @@ void nn_add_layer(nn *n, layer l)
 
             assert(cl_prev->output_rows * cl_prev->output_cols *
                    cl_prev->convolutions == dl_new->input_size);
+            assert(cl_prev->batch_size == dl_new->batch_size);
         }
         else {
             dense_layer *dl_prev = (dense_layer *)prev->data;
             dense_layer *dl_new = (dense_layer *)l.data;
 
             assert(dl_prev->output_size == dl_new->input_size);
+            assert(dl_prev->batch_size == dl_new->batch_size);
         }
     }
 
@@ -75,23 +78,40 @@ void nn_forward(nn n, void *inputs, void **outputs)
         current_outputs = NULL;
 
         if (i > 0 && n.layers[i - 1].type == CONV && n.layers[i].type == DENSE) {
-            tens *inputs_tens = (tens *)current_inputs;
+            tens4D *inputs_tens4D = (tens4D *)current_inputs;
             mat *flattened = malloc(sizeof(mat));
-            *flattened = mat_alloc(inputs_tens->rows * inputs_tens->cols * inputs_tens->depth, 1);
+            *flattened = mat_alloc(inputs_tens4D->rows * inputs_tens4D->cols * inputs_tens4D->depth,
+                                   inputs_tens4D->batches);
 
-            tens_flatten(*flattened, *inputs_tens);
+            tens4D_flatten(*flattened, *inputs_tens4D);
+
+            tens4D_destroy(*inputs_tens4D);
+            free(current_inputs);
 
             current_inputs = flattened;
         }
 
         n.layers[i].forward(n.layers[i], current_inputs, &current_outputs);
 
-        if (i > 0) free(current_inputs);
+        if (i > 0) {
+            switch (n.layers[i].type) {
+                case DENSE:
+                    mat *inputs_mat = (mat *)current_inputs;
+                    free(inputs_mat->vals);
+                    break;
+                    case CONV:
+                    tens4D *inputs_tens4D = (tens4D *)current_inputs;
+                    tens4D_destroy(*inputs_tens4D);
+                    break;
+            }
+
+            free(current_inputs);
+        }
 
         current_inputs = current_outputs;
     }
 
-    *outputs = current_outputs;
+    *outputs = current_inputs;
 }
 
 void nn_backprop(nn n, void *grad_in, void **grad_out, double rate)
@@ -104,24 +124,41 @@ void nn_backprop(nn n, void *grad_in, void **grad_out, double rate)
 
         if (i < n.num_layers - 1 && n.layers[i + 1].type == DENSE && n.layers[i].type == CONV) {
             mat *grad_in_mat = (mat *)current_grad_in;
-            tens *unflattened = malloc(sizeof(tens));
+            tens4D *unflattened = malloc(sizeof(tens4D));
 
             conv_layer *cl = (conv_layer *)n.layers[i].data;
-            *unflattened = tens_alloc(cl->output_rows, cl->output_cols, cl->convolutions);
+            *unflattened = tens4D_alloc(cl->output_rows, cl->output_cols,
+                                        cl->convolutions, cl->batch_size);
 
             mat_unflatten(*unflattened, *grad_in_mat);
+
+            free(grad_in_mat->vals);
+            free(current_grad_in);
 
             current_grad_in = unflattened;
         }
 
-        n.layers[i].backprop(n.layers[i], current_grad_in, &current_grad_out, rate); 
+        n.layers[i].backprop(n.layers[i], current_grad_in, &current_grad_out, rate);
 
-        if (i < n.num_layers - 1) free(current_grad_in);
+        if (i < n.num_layers - 1) {
+            switch (n.layers[i].type) {
+                case DENSE:
+                    mat *mat_grad_in = (mat *)current_grad_in;
+                    free(mat_grad_in->vals);
+                    break;
+                case CONV:
+                    tens4D *tens4D_grad_in = (tens4D *)current_grad_in;
+                    tens4D_destroy(*tens4D_grad_in);
+                    break;
+            }
+
+            free(current_grad_in);
+        }
 
         current_grad_in = current_grad_out;
     }
 
-    *grad_out = current_grad_out;
+    *grad_out = current_grad_in;
 }
 
 void nn_destroy(nn n)

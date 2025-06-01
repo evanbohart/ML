@@ -4,7 +4,8 @@ CXX = g++
 CFLAGS = -Wall -Wextra -g3 -I./include -I./SDL/x86_64-w64-mingw32/include/SDL2/
 LDFLAGS = -L./SDL/x86_64-w64-mingw32/lib/ -lSDL2
 
-IMG_SRCS = src/img.c src/mat.c src/tens.c src/dense_layer.c src/conv_layer.c src/nn.c src/utils.c 
+IMG_SRCS = src/img.c src/mat.c src/tens3D.c src/tens4D.c src/dense_layer.c \
+		   src/conv_layer.c src/nn.c src/utils.c
 IMG_OBJS = $(IMG_SRCS:src/%.c=obj/%.o)
 
 CUBE_C_SRCS = src/mat.c src/tens.c src/net.c src/cnet.c src/utils.c
@@ -15,7 +16,7 @@ CHESS_SRCS = src/mat.c src/tens.c src/dense_layer.c src/conv_layer.c src/nn.c sr
 			 src/board.c src/move.c src/attack.c src/magic.c src/pin.c src/test.c
 CHESS_OBJS = $(CHESS_SRCS:src/%.c=obj/%.o)
 
-all: img chess
+all: img
 
 obj:
 	mkdir -p obj

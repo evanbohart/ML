@@ -3,7 +3,7 @@
 #include "nn.h"
 #include "utils.h"
 
-#define BATCH_SIZE 100
+#define BATCH_SIZE 40
 
 int read_next_img(FILE *f, tens3D inputs)
 {
@@ -34,13 +34,18 @@ int main(void)
     get_path(files[3], "cifar-10-batches-bin/data_batch_4.bin");
     get_path(files[4], "cifar-10-batches-bin/data_batch_5.bin");
 
-    nn net = nn_alloc(6);
+    nn net = nn_alloc(11);
     padding_t same = { 1, 1, 1, 1 };
 
     nn_add_layer(&net, conv_layer_alloc(32, 32, 3, BATCH_SIZE, 3, 32, 1, same, 2, RELU));
+    nn_add_layer(&net, conv_dropout_layer_alloc(16, 16, 32, BATCH_SIZE, 0.2));
     nn_add_layer(&net, conv_layer_alloc(16, 16, 32, BATCH_SIZE, 3, 64, 1, same, 2, RELU));
+    nn_add_layer(&net, conv_dropout_layer_alloc(8, 8, 64, BATCH_SIZE, 0.2));
     nn_add_layer(&net, conv_layer_alloc(8, 8, 64, BATCH_SIZE, 3, 64, 1, same, 2, RELU));
+    nn_add_layer(&net, conv_dropout_layer_alloc(4, 4, 64, BATCH_SIZE, 0.2));
     nn_add_layer(&net, conv_layer_alloc(4, 4, 64, BATCH_SIZE, 3, 128, 1, same, 2, RELU));
+    nn_add_layer(&net, conv_dropout_layer_alloc(2, 2, 128, BATCH_SIZE, 0.2));
+    nn_add_layer(&net, flatten_layer_alloc(2, 2, 128, BATCH_SIZE));
     nn_add_layer(&net, dense_layer_alloc(512, 128, BATCH_SIZE, RELU));
     nn_add_layer(&net, dense_layer_alloc(128, 10, BATCH_SIZE, SOFTMAX));
 

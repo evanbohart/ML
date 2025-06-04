@@ -1,17 +1,14 @@
-#include "nn.h"
-#include "utils.h"
 #include <assert.h>
-#include <stdio.h>
 #include <math.h>
 #include <float.h>
+#include "nn.h"
+#include "utils.h"
 
 mat mat_alloc(int rows, int cols)
 {
 	mat m;
-
 	m.rows = rows;
 	m.cols = cols;
-
 	m.vals = malloc(rows * cols * sizeof(double));
 
 	return m;
@@ -183,7 +180,7 @@ void mat_pad(mat destination, mat m, padding_t padding)
         for (int j = 0; j < destination.cols; ++j) {
             mat_at(destination, i, j) = 0;
             if (i >= padding[TOP] && i < (m.rows + padding[TOP]) &&
-                j >= padding[LEFT] && i < (m.rows + padding[LEFT])) {
+                j >= padding[LEFT] && j < (m.rows + padding[LEFT])) {
                 mat_at(destination, i, j) = mat_at(m, i - padding[TOP], j - padding[LEFT]);
             }
         }
@@ -202,7 +199,7 @@ void mat_filter(mat destination, mat m, int row, int col)
     }
 }
 
-void mat_convolve_mat(mat destination, mat m, mat filter)
+void mat_convolve(mat destination, mat m, mat filter)
 {
     assert(destination.rows == m.rows - filter.rows + 1);
     assert(destination.cols == m.cols - filter.cols + 1);

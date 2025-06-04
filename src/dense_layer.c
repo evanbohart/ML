@@ -7,7 +7,6 @@ layer dense_layer_alloc(int input_size, int output_size,
                         int batch_size, actfunc activation)
 {
     dense_layer *dl = malloc(sizeof(dense_layer));
-
     dl->weights = mat_alloc(output_size, input_size);
     dl->biases = mat_alloc(output_size, 1);
     dl->activation = activation;

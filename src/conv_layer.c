@@ -64,7 +64,20 @@ void conv_forward(layer l, void *inputs, void **outputs)
                                         cl->input_channels, cl->batch_size);
     tens4D_pad(inputs_padded, *tens4D_inputs, cl->padding);
 
-    tens4D_convolve_tens4D(cl->lins_cache, inputs_padded, cl->filters);
+    mat convolved = mat_alloc(cl->conv_rows, cl->conv_cols);
+
+    tens4D_fill(cl->lins_cache, 0);
+
+    for (int i = 0; i < cl->batch_size; ++i) {
+        for (int j = 0; j < cl->input_channels; ++j) {
+            for (int k = 0; k < cl->convolutions; ++k) {
+                mat_convolve(convolved, inputs_padded.tens3Ds[i].mats[j],
+                             cl->filters.tens3Ds[k].mats[j]);
+                mat_add(cl->lins_cache.tens3Ds[i].mats[k],
+                        cl->lins_cache.tens3Ds[i].mats[k], convolved);
+            }
+        }
+    }
 
     for (int i = 0; i < cl->conv_rows; ++i) {
         for (int j = 0; j < cl->conv_cols; ++j) {
@@ -154,8 +167,8 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
     for (int i = 0; i < cl->batch_size; ++i) {
         for (int j = 0; j < cl->input_channels; ++j) {
             for (int k = 0; k < cl->convolutions; ++k) {
-                mat_convolve_mat(grad_out_convolved, grad_padded.tens3Ds[i].mats[k],
-                                 filter_180.tens3Ds[k].mats[j]);
+                mat_convolve(grad_out_convolved, grad_padded.tens3Ds[i].mats[k],
+                             filter_180.tens3Ds[k].mats[j]);
                 mat_add(tens4D_grad_out->tens3Ds[i].mats[j],
                         tens4D_grad_out->tens3Ds[i].mats[j], grad_out_convolved);
             }
@@ -178,8 +191,8 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
     for (int i = 0; i < cl->batch_size; ++i) {
         for (int j = 0; j < cl->input_channels; ++j) {
             for (int k = 0; k < cl->convolutions; ++k) {
-                mat_convolve_mat(dw_convolved, inputs_padded.tens3Ds[i].mats[j],
-                                 grad.tens3Ds[i].mats[k]);
+                mat_convolve(dw_convolved, inputs_padded.tens3Ds[i].mats[j],
+                             grad.tens3Ds[i].mats[k]);
                 mat_add(dw.tens3Ds[k].mats[j], dw.tens3Ds[k].mats[j], dw_convolved);
             }
         }

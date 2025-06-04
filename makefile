@@ -4,8 +4,8 @@ CXX = g++
 CFLAGS = -Wall -Wextra -g3 -I./include -I./SDL/x86_64-w64-mingw32/include/SDL2/
 LDFLAGS = -L./SDL/x86_64-w64-mingw32/lib/ -lSDL2
 
-IMG_SRCS = src/img.c src/mat.c src/tens3D.c src/tens4D.c src/dense_layer.c \
-		   src/conv_layer.c src/nn.c src/utils.c
+IMG_SRCS = src/img.c src/mat.c src/tens3D.c src/tens4D.c src/dense_layer.c src/conv_layer.c \
+		   src/flatten_layer.c src/dense_dropout_layer.c src/conv_dropout_layer.c src/nn.c src/utils.c
 IMG_OBJS = $(IMG_SRCS:src/%.c=obj/%.o)
 
 CUBE_C_SRCS = src/mat.c src/tens.c src/net.c src/cnet.c src/utils.c

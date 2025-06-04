@@ -134,28 +134,6 @@ void tens3D_filter(tens3D destination, tens3D t, int row, int col)
     }
 }
 
-void tens3D_convolve_tens3D(mat destination, tens3D t, tens3D filter)
-{
-    assert(t.depth == filter.depth);
-
-    mat convolved = mat_alloc(destination.rows, destination.cols);
-    mat_fill(destination, 0);
-
-    for (int i = 0; i < t.depth; ++i) {
-        mat_convolve_mat(convolved, t.mats[i], filter.mats[i]);
-        mat_add(destination, destination, convolved);
-    }
-}
-
-void tens3D_convolve_tens4D(tens3D destination, tens3D t, tens4D filters)
-{
-    assert(destination.depth == filters.batches);
-
-    for (int i = 0; i < destination.depth; ++i) {
-        tens3D_convolve_tens3D(destination.mats[i], t, filters.tens3Ds[i]);
-    }
-}
-
 void tens3D_maxpool(tens3D destination, tens3D t, tens3D mask, int pooling_size)
 {
     assert(destination.depth == t.depth);

@@ -105,15 +105,6 @@ void tens4D_pad(tens4D destination, tens4D t, padding_t padding)
     }
 }
 
-void tens4D_convolve_tens4D(tens4D destination, tens4D t, tens4D filters)
-{
-    assert(destination.batches == t.batches);
-
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_convolve_tens4D(destination.tens3Ds[i], t.tens3Ds[i], filters);
-    }
-}
-
 void tens4D_maxpool(tens4D destination, tens4D t, tens4D mask, int pooling_size)
 {
     assert(destination.batches == t.batches);

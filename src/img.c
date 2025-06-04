@@ -34,7 +34,7 @@ int main(void)
     get_path(files[3], "cifar-10-batches-bin/data_batch_4.bin");
     get_path(files[4], "cifar-10-batches-bin/data_batch_5.bin");
 
-    nn net = nn_alloc(11);
+    nn net = nn_alloc(12);
     padding_t same = { 1, 1, 1, 1 };
 
     nn_add_layer(&net, conv_layer_alloc(32, 32, 3, BATCH_SIZE, 3, 32, 1, same, 2, RELU));
@@ -47,6 +47,7 @@ int main(void)
     nn_add_layer(&net, conv_dropout_layer_alloc(2, 2, 128, BATCH_SIZE, 0.2));
     nn_add_layer(&net, flatten_layer_alloc(2, 2, 128, BATCH_SIZE));
     nn_add_layer(&net, dense_layer_alloc(512, 128, BATCH_SIZE, RELU));
+    nn_add_layer(&net, dense_dropout_layer_alloc(128, BATCH_SIZE, 0.5));
     nn_add_layer(&net, dense_layer_alloc(128, 10, BATCH_SIZE, SOFTMAX));
 
     nn_he(net);

@@ -78,6 +78,15 @@ void tens4D_trans(tens4D destination, tens4D t)
     }
 }
 
+void tens4D_180(tens4D destination, tens4D t)
+{
+    assert(destination.batches == t.batches);
+
+    for (int i = 0; i < destination.batches; ++i) {
+        tens3D_180(destination.tens3Ds[i], t.tens3Ds[i]);
+    }
+}
+
 void tens4D_scale(tens4D destination, tens4D t, double a)
 {
     assert(destination.batches == t.batches);

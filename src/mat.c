@@ -123,6 +123,18 @@ void mat_trans(mat destination, mat m)
 	}
 }
 
+void mat_180(mat destination, mat m)
+{
+    assert(destination.rows == m.rows);
+    assert(destination.cols == m.cols);
+
+    for (int i = 0; i < destination.rows; ++i) {
+        for (int j = 0; j < destination.cols; ++j) {
+            mat_at(destination, i, j) = mat_at(m, m.rows - 1 - i, m.cols - 1 - i);
+        }
+    }
+}
+
 void mat_scale(mat destination, mat m, double a)
 {
 	assert(destination.rows == m.rows);

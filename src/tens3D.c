@@ -94,6 +94,15 @@ void tens3D_trans(tens3D destination, tens3D t)
     }
 }
 
+void tens3D_180(tens3D destination, tens3D t)
+{
+    assert(destination.depth == t.depth);
+
+    for (int i = 0; i < destination.depth; ++i) {
+        mat_180(destination.mats[i], t.mats[i]);
+    }
+}
+
 void tens3D_scale(tens3D destination, tens3D t, double a)
 {
     assert(destination.rows == t.rows);

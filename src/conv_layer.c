@@ -110,6 +110,7 @@ void conv_forward(layer l, void *inputs, void **outputs)
     *outputs = tens4D_outputs;
 
     tens4D_destroy(inputs_padded);
+    free(convolved.vals);
     tens4D_destroy(activated);
 }
 
@@ -150,13 +151,10 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
                                       cl->convolutions, cl->batch_size);
     tens4D_pad(grad_padded, grad, padding);
 
-    tens4D filter_trans = tens4D_alloc(cl->filter_size, cl->filter_size,
-                                       cl->input_channels, cl->convolutions);
     tens4D filter_180 = tens4D_alloc(cl->filter_size, cl->filter_size,
                                      cl->input_channels, cl->convolutions);
 
-    tens4D_trans(filter_trans, cl->filters);
-    tens4D_trans(filter_180, filter_trans);
+    tens4D_180(filter_180, cl->filters);
 
     *tens4D_grad_out = tens4D_alloc(cl->input_rows, cl->input_cols,
                                     cl->input_channels, cl->batch_size);
@@ -225,7 +223,6 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
     tens4D_destroy(unpooled);
     tens4D_destroy(grad);
     tens4D_destroy(grad_padded);
-    tens4D_destroy(filter_trans);
     tens4D_destroy(filter_180);
     free(grad_out_convolved.vals);
     tens4D_destroy(inputs_padded);

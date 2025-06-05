@@ -67,8 +67,8 @@ void mat_maxpool(mat destination, mat m, mat mask, int pooling_size);
 void mat_maxunpool(mat destination, mat m, mat mask, int pooling_size);
 void mat_unflatten(tens4D destination, mat m);
 void mat_print(mat m);
-void mat_load(mat m, FILE *f);
 void mat_save(mat m, FILE *f);
+void mat_load(mat m, FILE *f);
 
 tens3D tens3D_alloc(int rows, int cols, int depth);
 void tens3D_rand(tens3D t, double min, double max);
@@ -90,8 +90,8 @@ void tens3D_maxunpool(tens3D destination, tens3D t, tens3D mask, int pooling_siz
 void tens3D_flatten(mat destination, tens3D t);
 void tens3D_print(tens3D t);
 void tens3D_destroy(tens3D t);
-void tens3D_load(tens3D t, FILE *f);
 void tens3D_save(tens3D t, FILE *f);
+void tens3D_load(tens3D t, FILE *f);
 
 tens4D tens4D_alloc(int rows, int cols, int depth, int batches);
 void tens4D_rand(tens4D t, double min, double max);
@@ -110,6 +110,8 @@ void tens4D_maxunpool(tens4D destination, tens4D t, tens4D mask, int pooling_siz
 void tens4D_flatten(mat destination, tens4D t);
 void tens4D_print(tens4D t);
 void tens4D_destroy(tens4D t);
+void tens4D_save(tens4D t, FILE *f);
+void tens4D_load(tens4D t, FILE *f);
 
 typedef enum actfunc { SIGMOID, RELU, SOFTMAX } actfunc;
 
@@ -126,6 +128,8 @@ typedef struct layer {
     void (*he)(struct layer);
     void (*glorot)(struct layer);
     void (*print)(struct layer);
+    void (*save)(struct layer, FILE *f);
+    void (*load)(struct layer, FILE *f);
 } layer;
 
 typedef struct dense_layer {
@@ -147,6 +151,8 @@ void dense_destroy(layer l);
 void dense_he(layer l);
 void dense_glorot(layer l);
 void dense_print(layer l);
+void dense_save(layer l, FILE *f);
+void dense_load(layer l, FILE *f);
 
 typedef struct conv_layer {
 	tens4D filters;
@@ -179,6 +185,8 @@ void conv_destroy(layer l);
 void conv_he(layer l);
 void conv_glorot(layer l);
 void conv_print(layer l);
+void conv_save(layer l, FILE *f);
+void conv_load(layer l, FILE *f);
 
 typedef struct flatten_layer {
     int input_rows;
@@ -236,6 +244,8 @@ void nn_destroy(nn n);
 void nn_he(nn n);
 void nn_glorot(nn n);
 void nn_print(nn n);
+void nn_save(nn n, FILE *f);
+void nn_load(nn n, FILE *f);
 
 #ifdef __cplusplus
 }

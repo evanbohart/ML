@@ -21,6 +21,8 @@ layer flatten_layer_alloc(int input_rows, int input_cols,
     l.glorot = NULL;
     l.he = NULL;
     l.print = NULL;
+    l.save = NULL;
+    l.load = NULL;
 
     return l;
 }

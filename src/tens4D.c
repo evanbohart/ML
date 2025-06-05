@@ -169,3 +169,17 @@ void tens4D_destroy(tens4D t)
 
     free(t.tens3Ds);
 }
+
+void tens4D_save(tens4D t, FILE *f)
+{
+    for (int i = 0; i < t.batches; ++i) {
+        tens3D_save(t.tens3Ds[i], f);
+    }
+}
+
+void tens4D_load(tens4D t, FILE *f)
+{
+    for (int i = 0; i < t.batches; ++i) {
+        tens3D_load(t.tens3Ds[i], f);
+    }
+}

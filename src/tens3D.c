@@ -179,16 +179,16 @@ void tens3D_destroy(tens3D t)
     free(t.mats);
 }
 
-void tens3D_load(tens3D t, FILE *f)
-{
-    for (int i = 0; i < t.depth; ++i) {
-        mat_load(t.mats[i], f);
-    }
-}
-
 void tens3D_save(tens3D t, FILE *f)
 {
     for (int i = 0; i < t.depth; ++i) {
         mat_save(t.mats[i], f);
+    }
+}
+
+void tens3D_load(tens3D t, FILE *f)
+{
+    for (int i = 0; i < t.depth; ++i) {
+        mat_load(t.mats[i], f);
     }
 }

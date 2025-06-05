@@ -1,5 +1,6 @@
 #include "utils.h"
 #include <stdio.h>
+#include <string.h>
 #include <stdbool.h>
 #include <math.h>
 
@@ -42,6 +43,6 @@ void get_path(char *path, char *file_name)
     char directory[FILENAME_MAX];
     get_directory(directory, FILENAME_MAX);
     strcpy(path, directory);
-    strcat(path, "\\docs\\");
+    strcat(path, "/docs/");
     strcat(path, file_name);
 }

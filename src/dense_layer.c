@@ -25,6 +25,8 @@ layer dense_layer_alloc(int input_size, int output_size,
     l.he = dense_he;
     l.glorot = dense_glorot;
     l.print = dense_print;
+    l.save = dense_save;
+    l.load = dense_load;
 
     return l;
 }
@@ -99,23 +101,23 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, double rate)
     mat dw = mat_alloc(dl->output_size, dl->input_size);
     mat_dot(dw, grad, input_trans);
 
+    mat_scale(dw, dw, 1.0 / dl->batch_size);
     mat_func(dw, dw, clip);
-    mat_scale(dw, dw, rate / dl->batch_size);
+    mat_scale(dw, dw, rate);
     mat_sub(dl->weights, dl->weights, dw);
 
     mat db = mat_alloc(dl->output_size, 1);
+    mat_fill(db, 0);
 
     for (int i = 0; i < dl->output_size; ++i) {
-        double sum = 0;
         for (int j = 0; j < dl->batch_size; ++j) {
-            sum += mat_at(grad, i, j);
+            mat_at(db, i, 0) += mat_at(grad, i, j);
         }
-
-        mat_at(db, i, 0) = sum;
     }
 
+    mat_scale(db, db, 1.0 / dl->batch_size);
     mat_func(db, db, clip);
-    mat_scale(db, db, rate / dl->batch_size);
+    mat_scale(db, db, rate);
     mat_sub(dl->biases, dl->biases, db);
 
     mat weights_trans = mat_alloc(dl->weights.cols, dl->weights.rows);
@@ -168,4 +170,20 @@ void dense_print(layer l)
 
     mat_print(dl->weights);
     mat_print(dl->biases);
+}
+
+void dense_save(layer l, FILE *f)
+{
+    dense_layer *dl = (dense_layer *)l.data;
+
+    mat_save(dl->weights, f);
+    mat_save(dl->biases, f);
+}
+
+void dense_load(layer l, FILE *f)
+{
+    dense_layer *dl = (dense_layer *)l.data;
+
+    mat_load(dl->weights, f);
+    mat_load(dl->biases, f);
 }

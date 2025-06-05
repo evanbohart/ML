@@ -21,6 +21,8 @@ layer dense_dropout_layer_alloc(int input_size, int batch_size, double rate)
     l.glorot = NULL;
     l.he = NULL;
     l.print = NULL;
+    l.save = NULL;
+    l.load = NULL;
 
     return l;
 }

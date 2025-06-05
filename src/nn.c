@@ -126,3 +126,21 @@ void nn_print(nn n)
         n.layers[i].print(n.layers[i]);
     }
 }
+
+void nn_save(nn n, FILE *f)
+{
+    for (int i = 0; i < n.num_layers; ++i) {
+        if (n.layers[i].type == DENSE || n.layers[i].type == CONV) {
+            n.layers[i].save(n.layers[i], f);
+        }
+    }
+}
+
+void nn_load(nn n, FILE *f)
+{
+    for (int i = 0; i < n.num_layers; ++i) {
+        if (n.layers[i].type == DENSE || n.layers[i].type == CONV) {
+            n.layers[i].load(n.layers[i], f);
+        }
+    }
+}

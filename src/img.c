@@ -5,6 +5,7 @@
 #include "utils.h"
 
 #define BATCH_SIZE 40
+#define BATCHES 10 * 1000 / BATCH_SIZE
 #define EPOCHS 20
 
 int read_next_img(FILE *f, tens3D inputs)
@@ -121,33 +122,42 @@ int train(char *path)
 
     nn_he(net);
 
-    tens4D inputs = tens4D_alloc(32, 32, 3, BATCH_SIZE);
+    tens4D inputs[BATCHES];
+    mat targets[BATCHES];
+    mat grad_in[BATCHES];
+
+    for (int i = 0; i < BATCHES; ++i) {
+        inputs[i] = tens4D_alloc(32, 32, 3, BATCH_SIZE);
+        targets[i] = mat_alloc(10, BATCH_SIZE);
+        grad_in[i] = mat_alloc(10, BATCH_SIZE);
+    }
+
     void *outputs;
-    mat targets = mat_alloc(10, BATCH_SIZE);
-    mat grad_in = mat_alloc(10, BATCH_SIZE);
     void *grad_out;
 
     for (int i = 0; i < EPOCHS; ++i) {
         for (int j = 0; j < 5; ++j) {
             FILE *f = fopen(training_files[j], "rb");
 
-            for (int k = 0; k < 10 * 1000 / BATCH_SIZE; ++k) {
-                mat_fill(targets, 0);
+            for (int k = 0; k < BATCHES; ++k) {
+                mat_fill(targets[k], 0);
                 for (int l = 0; l < BATCH_SIZE; ++l) {
-                    int target = read_next_img(f, inputs.tens3Ds[l]);
+                    int target = read_next_img(f, inputs[k].tens3Ds[l]);
                     if (target == -1) return EXIT_FAILURE;
-                    mat_at(targets, target, l) = 1;
+                    mat_at(targets[k], target, l) = 1;
                 }
+            }
 
+            for (int k = 0; k < BATCHES; ++k) { 
                 outputs = NULL;
                 grad_out = NULL;
 
-                nn_forward(net, &inputs, &outputs);
+                nn_forward(net, &inputs[k], &outputs);
                 mat *predicted = (mat *)outputs;
 
-                mat_sub(grad_in, *predicted, targets);
+                mat_sub(grad_in[k], *predicted, targets[k]);
 
-                nn_backprop(net, &grad_in, &grad_out, 1e-3);
+                nn_backprop(net, &grad_in[k], &grad_out, 1e-3);
                 tens4D *input_grad = (tens4D *)grad_out;
 
                 printf("Epoch %d | File %d | Batch %d\n", i + 1, j + 1, k + 1);
@@ -163,9 +173,11 @@ int train(char *path)
         }
     }
 
-    tens4D_destroy(inputs);
-    free(targets.vals);
-    free(grad_in.vals);
+    for (int i = 0; i < BATCHES; ++i) {
+        tens4D_destroy(inputs[i]);
+        free(targets[i].vals);
+        free(grad_in[i].vals);
+    }
 
     char file_path[FILENAME_MAX];
     get_path(file_path, path);

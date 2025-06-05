@@ -134,15 +134,6 @@ void tens3D_pad(tens3D destination, tens3D t, padding_t padding)
     }
 }
 
-void tens3D_filter(tens3D destination, tens3D t, int row, int col)
-{
-    assert(destination.depth == t.depth);
-
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_filter(destination.mats[i], t.mats[i], row, col);
-    }
-}
-
 void tens3D_maxpool(tens3D destination, tens3D t, tens3D mask, int pooling_size)
 {
     assert(destination.depth == t.depth);

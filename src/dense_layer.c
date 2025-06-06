@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include <omp.h>
 #include "nn.h"
 
 layer dense_layer_alloc(int input_size, int output_size,

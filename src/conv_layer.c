@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+#include <omp.h>
 #include "nn.h"
 
 layer conv_layer_alloc(int input_rows, int input_cols, int input_channels,
@@ -70,6 +71,7 @@ void conv_forward(layer l, void *inputs, void **outputs)
 
     tens4D_fill(cl->lins_cache, 0);
 
+    #pragma omp parallel for collapse(3) schedule(static)
     for (int i = 0; i < cl->batch_size; ++i) {
         for (int j = 0; j < cl->input_channels; ++j) {
             for (int k = 0; k < cl->convolutions; ++k) {
@@ -81,11 +83,12 @@ void conv_forward(layer l, void *inputs, void **outputs)
         }
     }
 
-    for (int i = 0; i < cl->conv_rows; ++i) {
-        for (int j = 0; j < cl->conv_cols; ++j) {
-            for (int k = 0; k < cl->convolutions; ++k) {
-                for (int l = 0; l < cl->batch_size; ++l) {
-                    tens4D_at(cl->lins_cache, i, j, k, l) += tens3D_at(cl->biases, i, j, k);
+    #pragma omp parallel for collapse(2) schedule(static)
+    for (int i = 0; i < cl->batch_size; ++i) {
+        for (int j = 0; j < cl->convolutions; ++j) {
+            for (int k = 0; k < cl->conv_rows; ++k) {
+                for (int l = 0; l < cl->conv_cols; ++l) {
+                    tens4D_at(cl->lins_cache, k, l, j, i) += tens3D_at(cl->biases, k, l, j);
                 }
             }
         }
@@ -164,6 +167,7 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
 
     mat grad_out_convolved = mat_alloc(cl->input_rows, cl->input_cols);
 
+    #pragma omp parallel for collapse(3) schedule(static)
     for (int i = 0; i < cl->batch_size; ++i) {
         for (int j = 0; j < cl->input_channels; ++j) {
             for (int k = 0; k < cl->convolutions; ++k) {
@@ -188,6 +192,7 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
 
     mat dw_convolved = mat_alloc(cl->filter_size, cl->filter_size);
 
+    #pragma omp parallel for collapse(3) schedule(static)
     for (int i = 0; i < cl->batch_size; ++i) {
         for (int j = 0; j < cl->input_channels; ++j) {
             for (int k = 0; k < cl->convolutions; ++k) {
@@ -206,11 +211,11 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
     tens3D db = tens3D_alloc(cl->conv_rows, cl->conv_cols, cl->convolutions);
     tens3D_fill(db, 0);
 
-    for (int i = 0; i < cl->conv_rows; ++i) {
-        for (int j = 0; j < cl->conv_cols; ++j) {
-            for (int k = 0; k < cl->convolutions; ++k) {
-                for (int l = 0; l < cl->batch_size; ++l) {
-                    tens3D_at(db, i, j, k) += tens4D_at(grad, i, j, k, l);
+    for (int i = 0; i < cl->batch_size; ++i) {
+        for (int j = 0; j < cl->convolutions; ++j) {
+            for (int k = 0; k < cl->conv_rows; ++k) {
+                for (int l = 0; l < cl->conv_cols; ++l) {
+                    tens3D_at(db, k, l, j) += tens4D_at(grad, k, l, j, i);
                 }
             }
         }

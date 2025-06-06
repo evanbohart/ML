@@ -1,7 +1,7 @@
 CC = gcc
 CXX = g++
 
-CFLAGS = -Wall -Wextra -g3 -I./include -I./SDL/x86_64-w64-mingw32/include/SDL2/
+CFLAGS = -Wall -Wextra -g3 -I./include -I./SDL/x86_64-w64-mingw32/include/SDL2/ -fopenmp
 LDFLAGS = -L./SDL/x86_64-w64-mingw32/lib/ -lSDL2
 
 IMG_SRCS = src/img.c src/mat.c src/tens3D.c src/tens4D.c src/dense_layer.c src/conv_layer.c \
@@ -28,13 +28,13 @@ obj/%.o: src/%.cpp | obj
 	$(CXX) $(CFLAGS) -c $< -o $@
 
 img: $(IMG_OBJS)
-	$(CC) $(IMG_OBJS) -o img
+	$(CC) $(CFLAGS) $(IMG_OBJS) -o img
 
 cube: $(CUBE_OBJS)
-	$(CXX) $(CUBE_OBJS) -o cube $(LDFLAGS)
+	$(CXX) $(CFLAGS) $(CUBE_OBJS) -o cube $(LDFLAGS)
 
 chess: $(CHESS_OBJS)
-	$(CC) $(CHESS_OBJS) -o chess
+	$(CC) $(CFLAGS) $(CHESS_OBJS) -o chess
 
 clean:
 	rm -rf obj snake cube chess

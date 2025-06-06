@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <omp.h>
 #include "nn.h"
 #include "utils.h"
 
@@ -18,7 +19,7 @@ int read_next_img(FILE *f, tens3D inputs)
             for (int k = 0; k < 32; ++k) {
                 unsigned char val;
                 fread(&val, 1, sizeof(val), f);
-                tens3D_at(inputs, k, j, i) = val;
+                tens3D_at(inputs, k, j, i) = val / 255.0;
             }
         }
     }
@@ -46,27 +47,34 @@ int showcase(char *path)
 
     nn_load(net, net_file);
 
-    tens4D inputs = tens4D_alloc(32, 32, 3, BATCH_SIZE);
-    void *outputs;
-    mat targets = mat_alloc(10, BATCH_SIZE);
-    mat grad_in = mat_alloc(10, BATCH_SIZE);
-    double correct = 0;
-
     char showcase_file[FILENAME_MAX];
     get_path(showcase_file, "cifar-10-batches-bin/test-batch.bin");
     FILE *f = fopen(showcase_file, "rb");
 
-    for (int i = 0; i < 10 * 1000 / BATCH_SIZE; ++i) {
-        mat_fill(targets, 0);
+    tens4D inputs[BATCHES];
+    mat targets[BATCHES];
+
+    for (int i = 0; i < BATCHES; ++i) {
+        inputs[i] = tens4D_alloc(32, 32, 3, BATCH_SIZE);
+        targets[i] = mat_alloc(10, BATCH_SIZE);
+    }
+
+    for (int i = 0; i < BATCHES; ++i) {
+        mat_fill(targets[i], 0);
         for (int j = 0; j < BATCH_SIZE; ++j) {
-            int target = read_next_img(f, inputs.tens3Ds[j]);
+            int target = read_next_img(f, inputs[i].tens3Ds[j]);
             if (target == -1) return EXIT_FAILURE;
-            mat_at(targets, target, j) = 1;
+            mat_at(targets[i], target, j) = 1;
         }
+    }
+ 
+    double correct = 0;
 
-        outputs = NULL;
+    #pragma omp parallel for reduction(+:correct) schedule(static)
+    for (int i = 0; i < BATCHES; ++i) {
+        void *outputs = NULL;
 
-        nn_forward(net, &inputs, &outputs);
+        nn_forward(net, &inputs[i], &outputs);
         mat *predicted = (mat *)outputs;
 
         for (int j = 0; j < BATCH_SIZE; ++j) {
@@ -80,15 +88,16 @@ int showcase(char *path)
                 }
             }
 
-            if (mat_at(targets, prediction, j) == 1) ++correct;
+            if (mat_at(targets[i], prediction, j) == 1) ++correct;
         }
-
-        printf("Batch %d | Correct %.4f%%\n", i + 1, correct / (i + 1) * BATCH_SIZE * 100);
     }
 
-    tens4D_destroy(inputs);
-    free(targets.vals);
-    free(grad_in.vals);
+    printf("Accuracy: %.2f\n", correct / (BATCHES * BATCH_SIZE));
+
+    for (int i = 0; i < BATCHES; ++i) {
+        tens4D_destroy(inputs[i]);
+        free(targets[i].vals);
+    }
 
     nn_destroy(net);
 
@@ -132,9 +141,6 @@ int train(char *path)
         grad_in[i] = mat_alloc(10, BATCH_SIZE);
     }
 
-    void *outputs;
-    void *grad_out;
-
     for (int i = 0; i < EPOCHS; ++i) {
         for (int j = 0; j < 5; ++j) {
             FILE *f = fopen(training_files[j], "rb");
@@ -148,9 +154,10 @@ int train(char *path)
                 }
             }
 
+            #pragma omp parallel for
             for (int k = 0; k < BATCHES; ++k) { 
-                outputs = NULL;
-                grad_out = NULL;
+                void *outputs = NULL;
+                void *grad_out = NULL;
 
                 nn_forward(net, &inputs[k], &outputs);
                 mat *predicted = (mat *)outputs;
@@ -159,8 +166,6 @@ int train(char *path)
 
                 nn_backprop(net, &grad_in[k], &grad_out, 1e-3);
                 tens4D *input_grad = (tens4D *)grad_out;
-
-                printf("Epoch %d | File %d | Batch %d\n", i + 1, j + 1, k + 1);
 
                 free(predicted->vals);
                 tens4D_destroy(*input_grad);
@@ -171,6 +176,8 @@ int train(char *path)
 
             fclose(f);
         }
+
+        printf("Epoch %d complete\n", i + 1);
     }
 
     for (int i = 0; i < BATCHES; ++i) {
@@ -196,7 +203,6 @@ int main(int argc, char **argv)
     srand(time(0));
 
     if (argc != 3) {
-        printf("Wrong");
         return EXIT_FAILURE;
     }
     else if (strcmp(argv[1], "showcase") == 0) {
@@ -206,6 +212,5 @@ int main(int argc, char **argv)
         return train(argv[2]);
     }
 
-    printf("Wrong");
     return EXIT_FAILURE;
 }

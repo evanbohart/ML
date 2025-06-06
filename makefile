@@ -28,7 +28,7 @@ obj/%.o: src/%.cpp | obj
 	$(CXX) $(CFLAGS) -c $< -o $@
 
 img: $(IMG_OBJS)
-	$(CC) $(CFLAGS) $(IMG_OBJS) -o img
+	$(CC) $(CFLAGS) $(IMG_OBJS) -o img -lm
 
 cube: $(CUBE_OBJS)
 	$(CXX) $(CFLAGS) $(CUBE_OBJS) -o cube $(LDFLAGS)

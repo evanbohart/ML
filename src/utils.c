@@ -12,14 +12,14 @@
 #define get_directory getcwd
 #endif
 
-double rand_double(double min, double max) { return (max - min) * rand() / RAND_MAX + min; }
+float rand_float(float min, float max) { return (max - min) * rand() / RAND_MAX + min; }
 
-double rand_normal(double mean, double stddev)
+float rand_normal(float mean, float stddev)
 {
-    double u1 = rand_double(0, 1);
-    double u2 = rand_double(0, 1);
+    float u1 = rand_float(0, 1);
+    float u2 = rand_float(0, 1);
 
-    while (u1 == 0) u1 = rand_double(0, 1);
+    while (u1 == 0) u1 = rand_float(0, 1);
 
     return stddev * sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2) + mean;
 }

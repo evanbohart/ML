@@ -83,12 +83,12 @@ void conv_forward(layer l, void *inputs, void **outputs)
         }
     }
 
-    #pragma omp parallel for collapse(2) schedule(static)
-    for (int i = 0; i < cl->batch_size; ++i) {
-        for (int j = 0; j < cl->convolutions; ++j) {
-            for (int k = 0; k < cl->conv_rows; ++k) {
-                for (int l = 0; l < cl->conv_cols; ++l) {
-                    tens4D_at(cl->lins_cache, k, l, j, i) += tens3D_at(cl->biases, k, l, j);
+    #pragma omp parallel for collapse(4) schedule(static) 
+    for (int i = 0; i < cl->convolutions; ++i) {
+        for (int j = 0; j < cl->conv_rows; ++j) {
+            for (int k = 0; k < cl->conv_cols; ++k) {
+                for (int l = 0; l < cl->batch_size; ++l) {
+                    tens4D_at(cl->lins_cache, j, k, i, l) += tens3D_at(cl->biases, j, k, i);
                 }
             }
         }
@@ -119,7 +119,7 @@ void conv_forward(layer l, void *inputs, void **outputs)
     tens4D_destroy(activated);
 }
 
-void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
+void conv_backprop(layer l, void *grad_in, void **grad_out, float rate)
 {
     conv_layer *cl = (conv_layer *)l.data;
     tens4D *tens4D_grad_in = (tens4D *)grad_in;
@@ -211,12 +211,17 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, double rate)
     tens3D db = tens3D_alloc(cl->conv_rows, cl->conv_cols, cl->convolutions);
     tens3D_fill(db, 0);
 
-    for (int i = 0; i < cl->batch_size; ++i) {
-        for (int j = 0; j < cl->convolutions; ++j) {
-            for (int k = 0; k < cl->conv_rows; ++k) {
-                for (int l = 0; l < cl->conv_cols; ++l) {
-                    tens3D_at(db, k, l, j) += tens4D_at(grad, k, l, j, i);
+    #pragma omp parallel for collapse(3) schedule(static)
+    for (int i = 0; i < cl->convolutions; ++i) {
+        for (int j = 0; j < cl->conv_rows; ++j) {
+            for (int k = 0; k < cl->conv_cols; ++k) {
+                float sum = 0;
+
+                for (int l = 0; l < cl->batch_size; ++l) {
+                    sum += tens4D_at(grad, j, k, i, l);
                 }
+
+                tens3D_at(db, j, k, i) = sum;
             }
         }
     }

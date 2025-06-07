@@ -1,7 +1,7 @@
 CC = gcc
 CXX = g++
 
-CFLAGS = -Wall -Wextra -g3 -I./include -I./SDL/x86_64-w64-mingw32/include/SDL2/ -fopenmp
+CFLAGS = -Wall -Wextra -g3 -O3 -ffast-math -I./include -I./SDL/x86_64-w64-mingw32/include/SDL2/ -fopenmp
 LDFLAGS = -L./SDL/x86_64-w64-mingw32/lib/ -lSDL2
 
 IMG_SRCS = src/img.c src/mat.c src/tens3D.c src/tens4D.c src/dense_layer.c src/conv_layer.c \

@@ -4,7 +4,7 @@
 #include "utils.h"
 
 layer conv_dropout_layer_alloc(int input_rows, int input_cols,
-                               int input_channels, int batch_size, double rate)
+                               int input_channels, int batch_size, float rate)
 {
     conv_dropout_layer *cdl = malloc(sizeof(conv_dropout_layer));
     cdl->input_rows = input_rows;
@@ -43,11 +43,12 @@ void conv_dropout_forward(layer l, void *inputs, void **outputs)
     *tens4D_outputs = tens4D_alloc(cdl->input_rows, cdl->input_cols,
                                    cdl->input_channels, cdl->batch_size);
 
-    for (int i = 0; i < cdl->input_rows; ++i) {
-        for (int j = 0; j < cdl->input_cols; ++j) {
-            for (int k = 0; k < cdl->input_channels; ++k) {
-                for (int l = 0; l < cdl->batch_size; ++l) {
-                    tens4D_at(cdl->mask, i, j, k, l) = rand_double(0, 1) > cdl->rate ? 1 : 0;
+    #pragma omp parallel for collapse(2) schedule(static)
+    for (int i = 0; i < cdl->batch_size; ++i) {
+        for (int j = 0; j < cdl->input_channels; ++j) {
+            for (int k = 0; k < cdl->input_rows; ++k) {
+                for (int l = 0; l < cdl->input_cols; ++l) {
+                    tens4D_at(cdl->mask, k, l, j, i) = rand_float(0, 1) > cdl->rate ? 1 : 0;
                 }
             }
         }
@@ -58,7 +59,7 @@ void conv_dropout_forward(layer l, void *inputs, void **outputs)
     *outputs = tens4D_outputs;
 }
 
-void conv_dropout_backprop(layer l, void *grad_in, void **grad_out, double rate)
+void conv_dropout_backprop(layer l, void *grad_in, void **grad_out, float rate)
 {
     conv_dropout_layer *cdl = (conv_dropout_layer *)l.data;
     tens4D *tens4D_grad_in = (tens4D *)grad_in;

@@ -3,15 +3,15 @@
 #include <math.h>
 #include "nn.h"
 
-double sig(double x) { return 1 / (1 + exp(x)); }
+float sig(float x) { return 1 / (1 + exp(x)); }
 
-double dsig(double x) { return sig(x) * (1 - sig(x)); }
+float dsig(float x) { return sig(x) * (1 - sig(x)); }
 
-double relu(double x) { return x * (x > 0); }
+float relu(float x) { return x * (x > 0); }
 
-double drelu(double x) { return x > 0; }
+float drelu(float x) { return x > 0; }
 
-double clip(double x) {
+float clip(float x) {
     if (x > 1) return 1;
     if (x < -1) return -1;
     return x;
@@ -63,7 +63,7 @@ void nn_forward(nn n, void *inputs, void **outputs)
     *outputs = current_inputs;
 }
 
-void nn_backprop(nn n, void *grad_in, void **grad_out, double rate)
+void nn_backprop(nn n, void *grad_in, void **grad_out, float rate)
 {
     void *current_grad_in = grad_in;
     void *current_grad_out;

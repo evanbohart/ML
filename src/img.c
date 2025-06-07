@@ -18,7 +18,7 @@ int read_next_img(FILE *f, tens3D inputs)
         for (int j = 0; j < 32; ++j) {
             for (int k = 0; k < 32; ++k) {
                 unsigned char val;
-                fread(&val, 1, sizeof(val), f);
+                if (!fread(&val, 1, sizeof(val), f)) return -1;
                 tens3D_at(inputs, k, j, i) = val / 255.0;
             }
         }
@@ -133,15 +133,16 @@ int train(char *path)
 
     tens4D inputs[BATCHES];
     mat targets[BATCHES];
-    mat grads[BATCHES];
 
     for (int i = 0; i < BATCHES; ++i) {
         inputs[i] = tens4D_alloc(32, 32, 3, BATCH_SIZE);
         targets[i] = mat_alloc(10, BATCH_SIZE);
-        grads[i] = mat_alloc(10, BATCH_SIZE);
     }
 
-    void *outputs[BATCHES];
+    mat grad_in = mat_alloc(10, BATCH_SIZE);
+
+    void *outputs;
+    void *grad_out;
 
     for (int i = 0; i < EPOCHS; ++i) {
         for (int j = 0; j < 5; ++j) {
@@ -156,38 +157,28 @@ int train(char *path)
                 }
             }
 
-            #pragma omp parallel for schedule(static)
             for (int k = 0; k < BATCHES; ++k) {
-                outputs[k] = NULL;
+                outputs = NULL;
+                grad_out = NULL;
 
-                nn_forward(net, &inputs[k], &outputs[k]);
-                mat *predicted = (mat *)outputs[k];
+                nn_forward(net, &inputs[k], &outputs);
+                mat *predicted = (mat *)outputs;
 
-                mat_sub(grads[k], *predicted, targets[k]);
+                mat_sub(grad_in, *predicted, targets[k]);
+
+                nn_backprop(net, &grad_in, &grad_out, 1e-3);
+                tens4D *input_grad = (tens4D *)grad_out;
 
                 free(predicted->vals);
-                free(outputs[k]);
+                tens4D_destroy(*input_grad);
+
+                free(outputs);
+                free(grad_out);
+
+                printf("here");
             }
 
             fclose(f);
-
-            mat grad_in = mat_alloc(10, BATCH_SIZE);
-            mat_fill(grad_in, 0);
-
-            for (int k = 0; k < BATCHES; ++k) {
-                mat_add(grad_in, grad_in, grads[k]);
-            }
-
-            mat_scale(grad_in, grad_in, 1.0 / BATCHES);
-
-            void *grad_out = NULL;
-
-            nn_backprop(net, &grad_in, &grad_out, 1e-3);
-
-            tens4D *grad_input = (tens4D *)grad_out;
-
-            tens4D_destroy(*grad_input);
-            free(grad_out);
         }
 
         printf("Epoch %d complete\n", i + 1);
@@ -196,8 +187,9 @@ int train(char *path)
     for (int i = 0; i < BATCHES; ++i) {
         tens4D_destroy(inputs[i]);
         free(targets[i].vals);
-        free(grads[i].vals);
     }
+
+    free(grad_in.vals);
 
     char file_path[FILENAME_MAX];
     get_path(file_path, path);

@@ -45,7 +45,7 @@ void flatten_forward(layer l, void *inputs, void **outputs)
     *outputs = mat_outputs;
 }
 
-void flatten_backprop(layer l, void *grad_in, void **grad_out, double rate)
+void flatten_backprop(layer l, void *grad_in, void **grad_out, float rate)
 {
     flatten_layer *fl = (flatten_layer *)l.data;
     mat *mat_grad_in = (mat *)grad_in;

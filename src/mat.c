@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <math.h>
 #include <float.h>
+#include <omp.h>
 #include "nn.h"
 #include "utils.h"
 
@@ -9,21 +10,21 @@ mat mat_alloc(int rows, int cols)
 	mat m;
 	m.rows = rows;
 	m.cols = cols;
-	m.vals = malloc(rows * cols * sizeof(double));
+	m.vals = malloc(rows * cols * sizeof(float));
 
 	return m;
 }
 
-void mat_rand(mat m, double min, double max)
+void mat_rand(mat m, float min, float max)
 {
 	for (int i = 0; i < m.rows; ++i) {
 		for (int j = 0; j < m.cols; ++j) {
-			mat_at(m, i, j) = rand_double(min, max);
+			mat_at(m, i, j) = rand_float(min, max);
 		}
 	}
 }
 
-void mat_normal(mat m, double mean, double stddev)
+void mat_normal(mat m, float mean, float stddev)
 {
     for (int i = 0; i < m.rows; ++i) {
         for (int j = 0; j < m.cols; ++j) {
@@ -32,7 +33,7 @@ void mat_normal(mat m, double mean, double stddev)
     }
 }
 
-void mat_fill(mat m, double val)
+void mat_fill(mat m, float val)
 {
 	for (int i = 0; i < m.rows; ++i) {
 		for (int j = 0; j < m.cols; ++j) {
@@ -135,7 +136,7 @@ void mat_180(mat destination, mat m)
     }
 }
 
-void mat_scale(mat destination, mat m, double a)
+void mat_scale(mat destination, mat m, float a)
 {
 	assert(destination.rows == m.rows);
 	assert(destination.cols == m.cols);
@@ -165,14 +166,14 @@ void mat_softmax(mat destination, mat m)
     assert(destination.cols == m.cols);
 
     for (int i = 0; i < m.cols; ++i) {
-        double max = -DBL_MAX;
+        float max = -FLT_MAX;
         for (int j = 0; j < m.rows; ++j) {
             if (mat_at(m, j, i) > max) max = mat_at(m, j, i);
         }
 
-        double sum = 0;
+        float sum = 0;
         for (int j = 0; j < destination.rows; ++j) {
-            double val = exp(mat_at(m, j, i) - max);
+            float val = exp(mat_at(m, j, i) - max);
             mat_at(destination, j, i) = val;
             sum += val;
         }
@@ -230,7 +231,7 @@ void mat_maxpool(mat destination, mat m, mat mask, int pooling_size)
 
     for (int i = 0; i < destination.rows; ++i) {
         for (int j = 0; j < destination.cols; ++j) {
-            double max = -DBL_MAX;
+            float max = -FLT_MAX;
             int row = 0;
             int col = 0;
 
@@ -277,15 +278,14 @@ void mat_unflatten(tens4D destination, mat m)
     assert(destination.rows * destination.cols * destination.depth == m.rows);
     assert(destination.batches == m.cols);
 
-    int index = 0;
-    for (int i = 0; i < destination.depth; ++i) {
-        for (int j = 0; j < destination.rows; ++j) {
-            for (int k = 0; k < destination.cols; ++k) {
-                for (int l = 0; l < destination.batches; ++l) {
-                    tens4D_at(destination, j, k, i, l) = mat_at(m, index, l);
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < destination.batches; ++i) {
+        for (int j = 0; j < destination.depth; ++j) {
+            for (int k = 0; k < destination.rows; ++k) {
+                for (int l = 0; l < destination.cols; ++l) {
+                    int index = (j * destination.rows + k) * destination.cols + l;
+                    tens4D_at(destination, k, l, j, i) = mat_at(m, index, i);
                 }
-
-                ++index;
             }
         }
     }
@@ -307,12 +307,12 @@ void mat_save(mat m, FILE *f)
 {
     assert(f != NULL);
 
-    fwrite(m.vals, sizeof(double), m.rows * m.cols, f);
+    fwrite(m.vals, sizeof(float), m.rows * m.cols, f);
 }
 
 void mat_load(mat m, FILE *f)
 {
     assert(f != NULL);
 
-    fread(m.vals, sizeof(double), m.rows * m.cols, f);
+    fread(m.vals, sizeof(float), m.rows * m.cols, f);
 }

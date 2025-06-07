@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
-#include <omp.h>
 #include "nn.h"
 
 layer dense_layer_alloc(int input_size, int output_size,
@@ -46,6 +45,7 @@ void dense_forward(layer l, void *inputs, void **outputs)
 
     mat_dot(dl->lins_cache, dl->weights, dl->input_cache);
 
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < dl->output_size; ++i) {
         for (int j = 0; j < dl->batch_size; ++j) {
             mat_at(dl->lins_cache, i, j) += mat_at(dl->biases, i, 0);
@@ -69,7 +69,7 @@ void dense_forward(layer l, void *inputs, void **outputs)
     *outputs = mat_outputs;
 }
 
-void dense_backprop(layer l, void *grad_in, void **grad_out, double rate)
+void dense_backprop(layer l, void *grad_in, void **grad_out, float rate)
 {
     dense_layer *dl = (dense_layer *)l.data;
     mat *mat_grad_in = (mat *)grad_in;
@@ -110,10 +110,16 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, double rate)
     mat db = mat_alloc(dl->output_size, 1);
     mat_fill(db, 0);
 
+
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < dl->output_size; ++i) {
+        float sum = 0;
+
         for (int j = 0; j < dl->batch_size; ++j) {
-            mat_at(db, i, 0) += mat_at(grad, i, j);
+            sum += mat_at(grad, i, j);
         }
+
+        mat_at(db, i, 0) = sum;
     }
 
     mat_scale(db, db, 1.0 / dl->batch_size);

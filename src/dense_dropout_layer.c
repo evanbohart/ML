@@ -3,7 +3,7 @@
 #include "nn.h"
 #include "utils.h"
 
-layer dense_dropout_layer_alloc(int input_size, int batch_size, double rate)
+layer dense_dropout_layer_alloc(int input_size, int batch_size, float rate)
 {
     dense_dropout_layer *ddl = malloc(sizeof(dense_dropout_layer));
 
@@ -37,9 +37,10 @@ void dense_dropout_forward(layer l, void *inputs, void **outputs)
 
     mat *mat_outputs = malloc(sizeof(mat));
 
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < ddl->input_size; ++i) {
         for (int j = 0; j < ddl->batch_size; ++j) {
-            mat_at(ddl->mask, i, j) = rand_double(0, 1) > ddl->rate ? 1 : 0;
+            mat_at(ddl->mask, i, j) = rand_float(0, 1) > ddl->rate ? 1 : 0;
         }
     }
 
@@ -49,7 +50,7 @@ void dense_dropout_forward(layer l, void *inputs, void **outputs)
     *outputs = mat_outputs;
 }
 
-void dense_dropout_backprop(layer l, void *grad_in, void **grad_out, double rate)
+void dense_dropout_backprop(layer l, void *grad_in, void **grad_out, float rate)
 {
     dense_dropout_layer *ddl = (dense_dropout_layer *)l.data;
     mat *mat_grad_in = (mat *)grad_in;

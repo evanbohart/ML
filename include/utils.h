@@ -7,8 +7,8 @@
 extern "C" {
 #endif
 
-double rand_double(double min, double max);
-double rand_normal(double mean, double stddev);
+float rand_float(float min, float max);
+float rand_normal(float mean, float stddev);
 void shuffle(void *arr, size_t type_size, int arr_size);
 void get_path(char *path, char *file_name);
 

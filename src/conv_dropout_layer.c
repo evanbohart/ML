@@ -48,7 +48,7 @@ void conv_dropout_forward(layer l, void *inputs, void **outputs)
         for (int j = 0; j < cdl->input_channels; ++j) {
             for (int k = 0; k < cdl->input_rows; ++k) {
                 for (int l = 0; l < cdl->input_cols; ++l) {
-                    tens4D_at(cdl->mask, k, l, j, i) = rand_float(0, 1) > cdl->rate ? 1 : 0;
+                    tens4D_at(cdl->mask, k, l, j, i) = rand_float(0.0f, 1.0f) > cdl->rate ? 1.0f : 0.0f;
                 }
             }
         }

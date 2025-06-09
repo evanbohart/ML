@@ -6,8 +6,7 @@
 
 tens3D tens3D_alloc(int rows, int cols, int depth)
 {
-	tens3D t;
-	
+	tens3D t;	
 	t.rows = rows;
 	t.cols = cols;
 	t.depth = depth;
@@ -144,28 +143,6 @@ void tens3D_pad(tens3D destination, tens3D t, padding_t padding)
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < destination.depth; ++i) {
         mat_pad(destination.mats[i], t.mats[i], padding);
-    }
-}
-
-void tens3D_maxpool(tens3D destination, tens3D t, tens3D mask, int pooling_size)
-{
-    assert(destination.depth == t.depth);
-    assert(destination.depth == mask.depth);
-
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_maxpool(destination.mats[i], t.mats[i], mask.mats[i], pooling_size);
-    }
-}
-
-void tens3D_maxunpool(tens3D destination, tens3D t, tens3D mask, int pooling_size)
-{
-    assert(destination.depth == t.depth);
-    assert(destination.depth == mask.depth);
-
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_maxunpool(destination.mats[i], t.mats[i], mask.mats[i], pooling_size);
     }
 }
 

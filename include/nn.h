@@ -62,8 +62,6 @@ void mat_func(mat destination, mat m, func f);
 void mat_softmax(mat destination, mat m);
 void mat_pad(mat destination, mat m, padding_t padding);
 void mat_convolve(mat destination, mat m, mat filter);
-void mat_maxpool(mat destination, mat m, mat mask, int pooling_size);
-void mat_maxunpool(mat destination, mat m, mat mask, int pooling_size);
 void mat_unflatten(tens4D destination, mat m);
 void mat_print(mat m);
 void mat_save(mat m, FILE *f);
@@ -82,9 +80,6 @@ void tens3D_180(tens3D destination, tens3D t);
 void tens3D_scale(tens3D destination, tens3D t, float a);
 void tens3D_func(tens3D destination, tens3D t, func f);
 void tens3D_pad(tens3D destination, tens3D t, padding_t padding);
-void tens3D_maxpool(tens3D destination, tens3D t, tens3D mask, int pooling_size);
-void tens3D_avgpool(tens3D destination, tens3D t, tens3D mask, int pooling_size);
-void tens3D_maxunpool(tens3D destination, tens3D t, tens3D mask, int pooling_size);
 void tens3D_flatten(mat destination, tens3D t);
 void tens3D_print(tens3D t);
 void tens3D_destroy(tens3D t);
@@ -103,8 +98,6 @@ void tens4D_180(tens4D destination, tens4D t);
 void tens4D_scale(tens4D destination, tens4D t, float a);
 void tens4D_func(tens4D destination, tens4D t, func f);
 void tens4D_pad(tens4D destination, tens4D t, padding_t padding);
-void tens4D_maxpool(tens4D destination, tens4D t, tens4D mask, int pooling_size);
-void tens4D_maxunpool(tens4D destination, tens4D t, tens4D mask, int pooling_size);
 void tens4D_flatten(mat destination, tens4D t);
 void tens4D_print(tens4D t);
 void tens4D_destroy(tens4D t);
@@ -113,7 +106,7 @@ void tens4D_load(tens4D t, FILE *f);
 
 typedef enum actfunc { SIGMOID, RELU, SOFTMAX } actfunc;
 
-typedef enum layer_type { DENSE, CONV, FLATTEN, DENSE_DROPOUT, CONV_DROPOUT } layer_type;
+typedef enum layer_type { DENSE, CONV, MAXPOOL, FLATTEN, DENSE_DROPOUT, CONV_DROPOUT } layer_type;
 
 typedef struct layer {
     layer_type type;
@@ -160,23 +153,19 @@ typedef struct conv_layer {
     int input_cols;
     int input_channels;
     int batch_size;
-    int conv_rows;
-    int conv_cols;
     int output_rows;
     int output_cols;
     int convolutions;
 	int filter_size;
     int stride;
     padding_t padding;
-    int pooling_size;
     tens4D input_cache;
     tens4D lins_cache;
-    tens4D pooling_mask;
 } conv_layer;
 
 layer conv_layer_alloc(int input_rows, int input_cols, int input_channels,
-                       int batch_size, int filter_size, int convolutions, int stride,
-                       padding_t padding, int pooling_size, actfunc activation);
+                       int batch_size, int filter_size, int convolutions,
+                       int stride, padding_t padding, actfunc activation);
 void conv_forward(layer l, void *inputs, void **outputs);
 void conv_backprop(layer l, void *grad_in, void **grad_out, float rate);
 void conv_destroy(layer l);
@@ -185,6 +174,23 @@ void conv_glorot(layer l);
 void conv_print(layer l);
 void conv_save(layer l, FILE *f);
 void conv_load(layer l, FILE *f);
+
+typedef struct maxpool_layer {
+    int input_rows;
+    int input_cols;
+    int input_channels;
+    int batch_size;
+    int pooling_size;
+    int output_rows;
+    int output_cols;
+    tens4D mask;
+} maxpool_layer;
+
+layer maxpool_layer_alloc(int input_rows, int input_cols, int input_channels,
+                          int batch_size, int pooling_size);
+void maxpool_forward(layer l, void *inputs, void **outputs);
+void maxpool_backprop(layer l, void *grad_in, void **grad_out, float rate);
+void maxpool_destroy(layer l);
 
 typedef struct flatten_layer {
     int input_rows;
@@ -220,7 +226,6 @@ typedef struct conv_dropout_layer {
     float rate;
     tens4D mask;
 } conv_dropout_layer;
-
 
 layer conv_dropout_layer_alloc(int input_rows, int input_cols,
                                int input_channels, int batch_size, float rate);

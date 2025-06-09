@@ -125,28 +125,6 @@ void tens4D_pad(tens4D destination, tens4D t, padding_t padding)
     }
 }
 
-void tens4D_maxpool(tens4D destination, tens4D t, tens4D mask, int pooling_size)
-{
-    assert(destination.batches == t.batches);
-    assert(destination.batches == mask.batches);
-
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_maxpool(destination.tens3Ds[i], t.tens3Ds[i], mask.tens3Ds[i], pooling_size);
-    }
-}
-
-void tens4D_maxunpool(tens4D destination, tens4D t, tens4D mask, int pooling_size)
-{
-    assert(destination.batches == t.batches);
-    assert(destination.batches == mask.batches);
-
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_maxunpool(destination.tens3Ds[i], t.tens3Ds[i], mask.tens3Ds[i], pooling_size);
-    }
-}
-
 void tens4D_flatten(mat destination, tens4D t)
 {
     assert(destination.rows == t.rows * t.cols * t.depth);

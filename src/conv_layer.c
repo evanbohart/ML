@@ -51,6 +51,12 @@ void conv_forward(layer l, void *inputs, void **outputs)
 {
     conv_layer *cl = (conv_layer *)l.data;
     tens4D *tens4D_inputs = (tens4D *)inputs;
+
+    assert(tens4D_inputs->rows == cl->input_rows);
+    assert(tens4D_inputs->cols == cl->input_cols);
+    assert(tens4D_inputs->depth == cl->input_channels);
+    assert(tens4D_inputs->batches == cl->batch_size);
+
     tens4D *tens4D_outputs = malloc(sizeof(tens4D));
 
     tens4D_copy(cl->input_cache, *tens4D_inputs);
@@ -112,6 +118,12 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, float rate)
 {
     conv_layer *cl = (conv_layer *)l.data;
     tens4D *tens4D_grad_in = (tens4D *)grad_in;
+
+    assert(tens4D_grad_in->rows == cl->output_rows);
+    assert(tens4D_grad_in->cols == cl->output_cols);
+    assert(tens4D_grad_in->depth == cl->convolutions);
+    assert(tens4D_grad_in->batches == cl->batch_size);
+
     tens4D *tens4D_grad_out = malloc(sizeof(tens4D));
     tens4D lins_deriv = tens4D_alloc(cl->output_rows, cl->output_cols,
                                      cl->convolutions, cl->batch_size);

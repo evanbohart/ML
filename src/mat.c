@@ -171,7 +171,7 @@ void mat_softmax(mat destination, mat m)
             if (mat_at(m, j, i) > max) max = mat_at(m, j, i);
         }
 
-        float sum = 0;
+        float sum = 0.0f;
         for (int j = 0; j < destination.rows; ++j) {
             float val = exp(mat_at(m, j, i) - max);
             mat_at(destination, j, i) = val;
@@ -193,7 +193,7 @@ void mat_pad(mat destination, mat m, padding_t padding)
         for (int j = 0; j < destination.cols; ++j) {
             mat_at(destination, i, j) = 0;
             if (i >= padding[TOP] && i < (m.rows + padding[TOP]) &&
-                j >= padding[LEFT] && j < (m.rows + padding[LEFT])) {
+                j >= padding[LEFT] && j < (m.cols + padding[LEFT])) {
                 mat_at(destination, i, j) = mat_at(m, i - padding[TOP], j - padding[LEFT]);
             }
         }
@@ -211,25 +211,7 @@ void mat_convolve(mat destination, mat m, mat filter)
         for (int j = 0; j < destination.cols; ++j) {
             for (int k = 0; k < filter.rows; ++k) {
                 for (int l = 0; l < filter.cols; ++l) {
-                    mat_at(destination, i, j) += mat_at(m, i + k, i + l) * mat_at(filter, k, l);
-                }
-            }
-        }
-    }
-}
-
-void mat_unflatten(tens4D destination, mat m)
-{
-    assert(destination.rows * destination.cols * destination.depth == m.rows);
-    assert(destination.batches == m.cols);
-
-    #pragma omp parallel for collapse(2)
-    for (int i = 0; i < destination.batches; ++i) {
-        for (int j = 0; j < destination.depth; ++j) {
-            for (int k = 0; k < destination.rows; ++k) {
-                for (int l = 0; l < destination.cols; ++l) {
-                    int index = (j * destination.rows + k) * destination.cols + l;
-                    tens4D_at(destination, k, l, j, i) = mat_at(m, index, i);
+                    mat_at(destination, i, j) += mat_at(m, i + k, j + l) * mat_at(filter, k, l);
                 }
             }
         }

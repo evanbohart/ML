@@ -21,7 +21,6 @@ tens4D tens4D_alloc(int rows, int cols, int depth, int batches)
 
 void tens4D_rand(tens4D t, float min, float max)
 {
-    #pragma omp parallel for schedule(static)
     for (int i = 0; i < t.batches; ++i) {
         tens3D_rand(t.tens3Ds[i], min, max);
     }
@@ -29,7 +28,6 @@ void tens4D_rand(tens4D t, float min, float max)
 
 void tens4D_normal(tens4D t, float mean, float stddev)
 {
-    #pragma omp parallel for schedule(static)
     for (int i = 0; i < t.batches; ++i) {
         tens3D_normal(t.tens3Ds[i], mean, stddev);
     }
@@ -122,24 +120,6 @@ void tens4D_pad(tens4D destination, tens4D t, padding_t padding)
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < destination.batches; ++i) {
         tens3D_pad(destination.tens3Ds[i], t.tens3Ds[i], padding);
-    }
-}
-
-void tens4D_flatten(mat destination, tens4D t)
-{
-    assert(destination.rows == t.rows * t.cols * t.depth);
-    assert(destination.cols == t.batches);
-
-    #pragma omp parallel for collapse(2) schedule(static)
-    for (int i = 0; i < t.batches; ++i) {
-        for (int j = 0; j < t.depth; ++j) {
-            for (int k = 0; k < t.rows; ++k) {
-                for (int l = 0; l < t.cols; ++l) {
-                    int index = (j * t.rows + k) * t.cols + l;
-                    mat_at(destination, index, i) = tens4D_at(t, k, l, j, i);
-                }
-            }
-        }
     }
 }
 

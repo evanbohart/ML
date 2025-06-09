@@ -21,7 +21,6 @@ tens3D tens3D_alloc(int rows, int cols, int depth)
 
 void tens3D_rand(tens3D t, float min, float max)
 {
-    #pragma omp parallel for schedule(static)
     for (int i = 0; i < t.depth; ++i) {
         mat_rand(t.mats[i], min, max);
     }
@@ -29,7 +28,6 @@ void tens3D_rand(tens3D t, float min, float max)
 
 void tens3D_normal(tens3D t, float mean, float stddev)
 {
-    #pragma omp parallel for schedule(static)
     for (int i = 0; i < t.depth; ++i) {
         mat_normal(t.mats[i], mean, stddev);
     }

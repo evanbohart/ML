@@ -40,7 +40,17 @@ void flatten_forward(layer l, void *inputs, void **outputs)
     mat *mat_outputs = malloc(sizeof(mat));
     *mat_outputs = mat_alloc(fl->output_size, fl->batch_size);
 
-    tens4D_flatten(*mat_outputs, *tens4D_inputs);
+    #pragma omp parallel for collapse(2) schedule(static)
+    for (int i = 0; i < fl->batch_size; ++i) {
+        for (int j = 0; j < fl->input_channels; ++j) {
+            for (int k = 0; k < fl->input_rows; ++k) {
+                for (int l = 0; l < fl->input_cols; ++l) {
+                    int index = (j * fl->input_rows + k) * fl->input_cols + l;
+                    mat_at(*mat_outputs, index, i) = tens4D_at(*tens4D_inputs, k, l, j, i);
+                }
+            }
+        }
+    }
 
     *outputs = mat_outputs;
 }
@@ -57,7 +67,17 @@ void flatten_backprop(layer l, void *grad_in, void **grad_out, float rate)
     *tens4D_grad_out = tens4D_alloc(fl->input_rows, fl->input_cols,
                                     fl->input_channels, fl->batch_size);
 
-    mat_unflatten(*tens4D_grad_out, *mat_grad_in);
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < fl->batch_size; ++i) {
+        for (int j = 0; j < fl->input_channels; ++j) {
+            for (int k = 0; k < fl->input_rows; ++k) {
+                for (int l = 0; l < fl->input_cols; ++l) {
+                    int index = (j * fl->input_rows + k) * fl->input_cols + l;
+                    tens4D_at(*tens4D_grad_out, k, l, j, i) = mat_at(*mat_grad_in, index, i);
+                }
+            }
+        }
+    }
 
     *grad_out = tens4D_grad_out;
 }

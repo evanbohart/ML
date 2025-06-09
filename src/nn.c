@@ -123,7 +123,9 @@ void nn_glorot(nn n)
 void nn_print(nn n)
 {
     for (int i = 0; i < n.num_layers; ++i) {
-        n.layers[i].print(n.layers[i]);
+        if (n.layers[i].type == DENSE || n.layers[i].type == CONV) {
+            n.layers[i].print(n.layers[i]);
+        }
     }
 }
 

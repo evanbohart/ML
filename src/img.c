@@ -7,7 +7,7 @@
 
 #define BATCH_SIZE 40
 #define BATCHES 10 * 1000 / BATCH_SIZE
-#define EPOCHS 20
+#define EPOCHS 10
 
 int read_next_img(FILE *f, tens3D inputs)
 {
@@ -19,7 +19,7 @@ int read_next_img(FILE *f, tens3D inputs)
             for (int k = 0; k < 32; ++k) {
                 unsigned char val;
                 if (!fread(&val, 1, sizeof(val), f)) return -1;
-                tens3D_at(inputs, j, k, i) = val / 255.0;
+                tens3D_at(inputs, j, k, i) = val / 255.0f;
             }
         }
     }
@@ -51,6 +51,7 @@ int showcase(char *path)
     nn_add_layer(&net, dense_layer_alloc(128, 10, BATCH_SIZE, SOFTMAX));
 
     nn_load(net, net_file);
+    fclose(net_file);
 
     char showcase_file[FILENAME_MAX];
     get_path(showcase_file, "cifar-10-batches-bin/test_batch.bin");
@@ -75,7 +76,6 @@ int showcase(char *path)
  
     double correct = 0;
 
-    #pragma omp parallel for reduction(+:correct) schedule(static)
     for (int i = 0; i < BATCHES; ++i) {
         void *outputs = NULL;
 
@@ -93,7 +93,7 @@ int showcase(char *path)
                 }
             }
 
-            if (mat_at(targets[i], prediction, j) == 1) ++correct;
+            if (mat_at(targets[i], prediction, j) == 1.0f) ++correct;
         }
     }
 
@@ -138,7 +138,12 @@ int train(char *path)
     nn_add_layer(&net, dense_dropout_layer_alloc(128, BATCH_SIZE, 0.2));
     nn_add_layer(&net, dense_layer_alloc(128, 10, BATCH_SIZE, SOFTMAX));
 
-    nn_he(net);
+    char file_path[FILENAME_MAX];
+    get_path(file_path, path);
+
+    FILE *net_file = fopen(file_path, "rb");
+    nn_load(net, net_file);
+    fclose(net_file);
 
     tens4D inputs[BATCHES];
     mat targets[BATCHES];
@@ -155,7 +160,7 @@ int train(char *path)
 
     for (int i = 0; i < EPOCHS; ++i) {
         for (int j = 0; j < 5; ++j) {
-            FILE *f = fopen(training_files[j], "rb");
+	    FILE *f = fopen(training_files[j], "rb");
 
             for (int k = 0; k < BATCHES; ++k) {
                 mat_fill(targets[k], 0);
@@ -184,13 +189,11 @@ int train(char *path)
                 free(outputs);
                 free(grad_out);
 
-                printf("here");
+                printf("Epoch %d File %d Batch %d\n", i + 1, j + 1, k + 1);
             }
 
             fclose(f);
         }
-
-        printf("Epoch %d complete\n", i + 1);
     }
 
     for (int i = 0; i < BATCHES; ++i) {
@@ -200,12 +203,10 @@ int train(char *path)
 
     free(grad_in.vals);
 
-    char file_path[FILENAME_MAX];
-    get_path(file_path, path);
-
-    FILE *net_file = fopen(file_path, "wb");
+    net_file = fopen(file_path, "wb");
 
     nn_save(net, net_file);
+    fclose(net_file);
 
     nn_destroy(net);
 

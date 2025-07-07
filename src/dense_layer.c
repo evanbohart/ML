@@ -108,17 +108,12 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, float rate)
     mat dw = mat_alloc(dl->output_size, dl->input_size);
     mat_dot(dw, grad, input_trans);
 
-    mat_scale(dw, dw, 1.0 / dl->batch_size);
-    mat_func(dw, dw, clip);
-    mat_scale(dw, dw, rate);
-    mat_sub(dl->weights, dl->weights, dw);
-
     mat db = mat_alloc(dl->output_size, 1);
     mat_fill(db, 0);
 
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < dl->output_size; ++i) {
-        float sum = 0;
+        float sum = 0.0f;
 
         for (int j = 0; j < dl->batch_size; ++j) {
             sum += mat_at(grad, i, j);
@@ -126,6 +121,11 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, float rate)
 
         mat_at(db, i, 0) = sum;
     }
+
+    mat_scale(dw, dw, 1.0 / dl->batch_size);
+    mat_func(dw, dw, clip);
+    mat_scale(dw, dw, rate);
+    mat_sub(dl->weights, dl->weights, dw);
 
     mat_scale(db, db, 1.0 / dl->batch_size);
     mat_func(db, db, clip);

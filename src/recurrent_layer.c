@@ -149,11 +149,11 @@ void recurrent_backprop(layer l, void *grad_in, void **grad_out, float rate)
     tens3D delta_hidden = tens3D_alloc(rl->hidden_size, rl->batch_size, rl->steps);
     tens3D delta_output = tens3D_alloc(rl->output_size, rl->batch_size, rl->steps);
 
-    tens3D input_trans = tens3D_alloc(rl->input_size, rl->batch_size, rl->steps);
+    tens3D input_trans = tens3D_alloc(rl->batch_size, rl->input_size, rl->steps);
     tens3D_trans(input_trans, rl->input_cache);
-    tens3D hidden_acts_trans = tens3D_alloc(rl->hidden_size, rl->batch_size, rl->steps);
+    tens3D hidden_acts_trans = tens3D_alloc(rl->batch_size, rl->hidden_size, rl->steps);
     tens3D_trans(hidden_acts_trans, rl->acts_cache_hidden);
-    mat initial_hidden_trans = mat_alloc(rl->hidden_size, 1);
+    mat initial_hidden_trans = mat_alloc(1, rl->hidden_size);
     mat_trans(initial_hidden_trans, rl->initial_hidden);
 
     tens3D lins_deriv_hidden = tens3D_alloc(rl->hidden_size, rl->batch_size, rl->steps);
@@ -217,8 +217,8 @@ void recurrent_backprop(layer l, void *grad_in, void **grad_out, float rate)
     mat dinitial_hidden = mat_alloc(rl->hidden_size, 1);
     mat_fill(dinitial_hidden, 0);
 
-    for (int i = rl->steps - 1; i >= 0; ++i) { 
-        mat_dot(delta_output.mats[i], tens3D_grad_in->mats[i], lins_deriv_output.mats[i]);
+    for (int i = rl->steps - 1; i >= 0; --i) {
+        mat_had(delta_output.mats[i], tens3D_grad_in->mats[i], lins_deriv_output.mats[i]);
         mat_dot(dw_output_current, delta_output.mats[i], hidden_acts_trans.mats[i]);
 
         if (i < rl->steps - 1) {
@@ -240,12 +240,12 @@ void recurrent_backprop(layer l, void *grad_in, void **grad_out, float rate)
             mat_dot(dw_hidden_current, delta_hidden.mats[i], hidden_acts_trans.mats[i]);
         }
         else {
-            mat broadcasted = mat_alloc(rl->hidden_size, rl->batch_size);
+            mat broadcasted = mat_alloc(rl->batch_size, rl->hidden_size);
 
             #pragma omp parallel for collapse(2) schedule(static)
-            for (int j = 0; j < rl->hidden_size; ++j) {
-                for (int k = 0; k < rl->batch_size; ++k) {
-                    mat_at(broadcasted, j, k) = mat_at(initial_hidden_trans, j, 0);
+            for (int j = 0; j < rl->batch_size; ++j) {
+                for (int k = 0; k < rl->hidden_size; ++k) {
+                    mat_at(broadcasted, j, k) = mat_at(initial_hidden_trans, 0, k);
                 }
             }
 
@@ -257,9 +257,13 @@ void recurrent_backprop(layer l, void *grad_in, void **grad_out, float rate)
 
             #pragma omp parallel for schedule(static)
             for (int j = 0; j < rl->hidden_size; ++j) {
+                float sum = 0.0f;
+
                 for (int k = 0; k < rl->batch_size; ++k) {
-                    mat_at(dinitial_hidden, j, 0) += mat_at(temp, j, k);
+                    sum += mat_at(temp, j, k);
                 }
+
+                mat_at(dinitial_hidden, j, 0) = sum;
             }
         }
 
@@ -269,16 +273,24 @@ void recurrent_backprop(layer l, void *grad_in, void **grad_out, float rate)
 
         #pragma omp parallel for schedule(static)
         for (int j = 0; j < rl->hidden_size; ++j) {
+            float sum = 0.0f;
+
             for (int k = 0; k < rl->batch_size; ++k) {
-                mat_at(db_hidden, j, 0) += mat_at(delta_hidden.mats[i], j, k);
+                sum += mat_at(delta_hidden.mats[i], j, k);
             }
+
+            mat_at(db_hidden, j, 0) = sum;
         }
 
         #pragma omp parallel for schedule(static)
         for (int j = 0; j < rl->output_size; ++j) {
+            float sum = 0.0f;
+
             for (int k = 0; k < rl->batch_size; ++k) {
-                mat_at(db_output, j, 0) += mat_at(delta_output.mats[i], j, k);
+                sum += mat_at(delta_output.mats[i], j, k);
             }
+
+            mat_at(db_output, j, 0) = sum;
         }
     }
 

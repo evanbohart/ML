@@ -31,17 +31,17 @@ layer dense_layer_alloc(int input_size, int output_size,
     return l;
 }
 
-void dense_forward(layer l, void *inputs, void **outputs)
+void dense_forward(layer l, void *input, void **output)
 {
     dense_layer *dl = (dense_layer *)l.data;
-    mat *mat_inputs = (mat *)inputs;
+    mat *mat_input = (mat *)input;
 
-    assert(mat_inputs->rows == dl->input_size);
-    assert(mat_inputs->cols == dl->batch_size);
+    assert(mat_input->rows == dl->input_size);
+    assert(mat_input->cols == dl->batch_size);
 
-    mat *mat_outputs = malloc(sizeof(mat));
+    mat *mat_output = malloc(sizeof(mat));
 
-    mat_copy(dl->input_cache, *mat_inputs);
+    mat_copy(dl->input_cache, *mat_input);
 
     mat_dot(dl->lins_cache, dl->weights, dl->input_cache);
 
@@ -52,21 +52,24 @@ void dense_forward(layer l, void *inputs, void **outputs)
         }
     }
 
-    *mat_outputs = mat_alloc(dl->output_size, dl->batch_size);
+    *mat_output = mat_alloc(dl->output_size, dl->batch_size);
 
     switch (dl->activation) {
-        case SIGMOID:
-            mat_func(*mat_outputs, dl->lins_cache, sig);
+        case LIN:
+            mat_func(*mat_output, dl->lins_cache, lin);
+            break;
+        case SIG:
+            mat_func(*mat_output, dl->lins_cache, sig);
+            break;
+        case TANH:
+            mat_func(*mat_output, dl->lins_cache, tanhf);
             break;
         case RELU:
-            mat_func(*mat_outputs, dl->lins_cache, relu);
-            break;
-        case SOFTMAX:
-            mat_softmax(*mat_outputs, dl->lins_cache);
+            mat_func(*mat_output, dl->lins_cache, relu);
             break;
     }
 
-    *outputs = mat_outputs;
+    *output = mat_output;
 }
 
 void dense_backprop(layer l, void *grad_in, void **grad_out, float rate)
@@ -83,18 +86,21 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, float rate)
     mat grad = mat_alloc(dl->output_size, dl->batch_size);
 
     switch (dl->activation) {
-        case SIGMOID:
+        case LIN:
+            mat_func(lins_deriv, dl->lins_cache, dlin);
+            break;
+        case SIG:
             mat_func(lins_deriv, dl->lins_cache, dsig);
-            mat_had(grad, *mat_grad_in, lins_deriv);
+            break;
+        case TANH:
+            mat_func(lins_deriv, dl->lins_cache, dtanh);
             break;
         case RELU:
             mat_func(lins_deriv, dl->lins_cache, drelu);
-            mat_had(grad, *mat_grad_in, lins_deriv);
-            break;
-        case SOFTMAX:
-            mat_copy(grad, *mat_grad_in);
             break;
     }
+
+    mat_had(grad, *mat_grad_in, lins_deriv);
 
     mat input_trans = mat_alloc(dl->batch_size, dl->input_size);
     mat_trans(input_trans, dl->input_cache);
@@ -109,7 +115,6 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, float rate)
 
     mat db = mat_alloc(dl->output_size, 1);
     mat_fill(db, 0);
-
 
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < dl->output_size; ++i) {

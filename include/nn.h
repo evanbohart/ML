@@ -9,8 +9,11 @@ extern "C" {
 
 typedef float (*func)(float);
 
+float lin(float x);
+float dlin(float x);
 float sig(float x);
 float dsig(float x);
+float dtanh(float x);
 float relu(float x);
 float drelu(float x);
 float clip(float x);
@@ -101,15 +104,14 @@ void tens4D_destroy(tens4D t);
 void tens4D_save(tens4D t, FILE *f);
 void tens4D_load(tens4D t, FILE *f);
 
-typedef enum actfunc { SIGMOID, RELU, SOFTMAX } actfunc;
-
-typedef enum layer_type { DENSE, CONV, MAXPOOL, FLATTEN, DENSE_DROPOUT, CONV_DROPOUT } layer_type;
+typedef enum layer_type { DENSE, CONV, MAXPOOL, FLATTEN, DENSE_DROPOUT, CONV_DROPOUT,
+                          RECURRENT, CONCAT } layer_type;
 
 typedef struct layer {
     layer_type type;
     void *data;
 
-    void (*forward)(struct layer l, void *inputs, void **outputs);
+    void (*forward)(struct layer l, void *input, void **output);
     void (*backprop)(struct layer l, void *grad_in, void **grad_out, float rate);
     void (*destroy)(struct layer);
 
@@ -120,20 +122,22 @@ typedef struct layer {
     void (*load)(struct layer, FILE *f);
 } layer;
 
+typedef enum actfunc { LIN, SIG, TANH, RELU } actfunc;
+
 typedef struct dense_layer {
-	mat weights;
-	mat biases;
-    actfunc activation;
     int input_size;
     int output_size;
     int batch_size;
+	mat weights;
+	mat biases;
     mat input_cache;
     mat lins_cache;
+    actfunc activation;
 } dense_layer;
 
 layer dense_layer_alloc(int input_size, int output_size,
                         int batch_size, actfunc activation);
-void dense_forward(layer l, void *inputs, void **outputs);
+void dense_forward(layer l, void *input, void **output);
 void dense_backprop(layer l, void *grad_in, void **grad_out, float rate);
 void dense_destroy(layer l);
 void dense_he(layer l);
@@ -145,7 +149,6 @@ void dense_load(layer l, FILE *f);
 typedef struct conv_layer {
 	tens4D filters;
 	tens3D biases;
-	actfunc activation;
     int input_rows;
     int input_cols;
     int input_channels;
@@ -158,12 +161,13 @@ typedef struct conv_layer {
     padding_t padding;
     tens4D input_cache;
     tens4D lins_cache;
+	actfunc activation;
 } conv_layer;
 
 layer conv_layer_alloc(int input_rows, int input_cols, int input_channels,
                        int batch_size, int filter_size, int convolutions,
                        int stride, padding_t padding, actfunc activation);
-void conv_forward(layer l, void *inputs, void **outputs);
+void conv_forward(layer l, void *input, void **output);
 void conv_backprop(layer l, void *grad_in, void **grad_out, float rate);
 void conv_destroy(layer l);
 void conv_he(layer l);
@@ -185,7 +189,7 @@ typedef struct maxpool_layer {
 
 layer maxpool_layer_alloc(int input_rows, int input_cols, int input_channels,
                           int batch_size, int pooling_size);
-void maxpool_forward(layer l, void *inputs, void **outputs);
+void maxpool_forward(layer l, void *input, void **output);
 void maxpool_backprop(layer l, void *grad_in, void **grad_out, float rate);
 void maxpool_destroy(layer l);
 
@@ -199,7 +203,7 @@ typedef struct flatten_layer {
 
 layer flatten_layer_alloc(int input_rows, int input_cols,
                           int input_channels, int batch_size);
-void flatten_forward(layer l, void *inputs, void **outputs);
+void flatten_forward(layer l, void *input, void **output);
 void flatten_backprop(layer l, void *grad_in, void **grad_out, float rate);
 void flatten_destroy(layer l);
 
@@ -211,7 +215,7 @@ typedef struct dense_dropout_layer {
 } dense_dropout_layer;
 
 layer dense_dropout_layer_alloc(int input_size, int batch_size, float rate);
-void dense_dropout_forward(layer l, void *inputs, void **outputs);
+void dense_dropout_forward(layer l, void *input, void **output);
 void dense_dropout_backprop(layer l, void *grad_in, void **grad_out, float rate);
 void dense_dropout_destroy(layer l);
 
@@ -226,9 +230,53 @@ typedef struct conv_dropout_layer {
 
 layer conv_dropout_layer_alloc(int input_rows, int input_cols,
                                int input_channels, int batch_size, float rate);
-void conv_dropout_forward(layer l, void *inputs, void **outputs);
+void conv_dropout_forward(layer l, void *input, void **output);
 void conv_dropout_backprop(layer l, void *grad_in, void **grad_out, float rate);
 void conv_dropout_destroy(layer l);
+
+typedef struct recurrent_layer {
+    int input_size;
+    int hidden_size;
+    int output_size;
+    int batch_size;
+    int steps;
+    mat weights_input;
+    mat weights_hidden;
+    mat weights_output;
+    mat biases_hidden;
+    mat biases_output;
+    mat initial_hidden;
+    tens3D input_cache;
+    tens3D lins_cache_hidden;
+    tens3D acts_cache_hidden;
+    tens3D lins_cache_output;
+    actfunc activation_hidden;
+    actfunc activation_output;
+} recurrent_layer;
+
+layer recurrent_layer_alloc(int input_size, int hidden_size,
+                            int output_size, int batch_size, int steps,
+                            actfunc activation_hidden, actfunc activation_output);
+void recurrent_forward(layer l, void *input, void **output);
+void recurrent_backprop(layer l, void *grad_in, void **grad_out, float rate);
+void recurrent_destroy(layer l);
+void recurrent_he(layer l);
+void recurrent_glorot(layer l);
+void recurrent_print(layer l);
+void recurrent_save(layer l, FILE *f);
+void recurrent_load(layer l, FILE *f);
+
+typedef struct {
+    int input_size;
+    int batch_size;
+    int output_size;
+    int steps;
+} concat_layer;
+
+layer concat_layer_alloc(int input_size, int batch_size, int steps);
+void concat_forward(layer l, void *input, void **output);
+void concat_backprop(layer l, void *grad_in, void **grad_out, float rate);
+void concat_destroy(layer l);
 
 typedef struct nn {
     int num_layers;
@@ -238,7 +286,7 @@ typedef struct nn {
 
 nn nn_alloc(int max_layers);
 void nn_add_layer(nn *n, layer l);
-void nn_forward(nn n, void *inputs, void **outputs);
+void nn_forward(nn n, void *input, void **output);
 void nn_backprop(nn n, void *grad_in, void **grad_out, float rate);
 void nn_destroy(nn n);
 void nn_he(nn n);

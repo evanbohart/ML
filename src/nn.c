@@ -3,9 +3,15 @@
 #include <math.h>
 #include "nn.h"
 
+float lin(float x) { return x; }
+
+float dlin(float x) { return 1; }
+
 float sig(float x) { return 1 / (1 + exp(x)); }
 
 float dsig(float x) { return sig(x) * (1 - sig(x)); }
+
+float dtanh(float x) { return 1 - pow(tanh(x), 2); }
 
 float relu(float x) { return x * (x > 0); }
 

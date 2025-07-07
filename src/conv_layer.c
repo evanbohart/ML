@@ -99,13 +99,17 @@ void conv_forward(layer l, void *inputs, void **outputs)
                                     cl->convolutions, cl->batch_size);
 
     switch (cl->activation) {
-        case SIGMOID:
+        case LIN:
+            tens4D_func(*tens4D_outputs, cl->lins_cache, lin);
+            break;
+        case SIG:
             tens4D_func(*tens4D_outputs, cl->lins_cache, sig);
+            break;
+        case TANH:
+            tens4D_func(*tens4D_outputs, cl->lins_cache, tanhf);
             break;
         case RELU:
             tens4D_func(*tens4D_outputs, cl->lins_cache, relu);
-            break;
-        case SOFTMAX:
             break;
     }
 
@@ -129,13 +133,17 @@ void conv_backprop(layer l, void *grad_in, void **grad_out, float rate)
                                      cl->convolutions, cl->batch_size);
 
     switch (cl->activation) {
-        case SIGMOID:
+        case LIN:
+            tens4D_func(lins_deriv, cl->lins_cache, dlin);
+            break;
+        case SIG:
             tens4D_func(lins_deriv, cl->lins_cache, dsig);
+            break;
+        case TANH:
+            tens4D_func(lins_deriv, cl->lins_cache, dtanh);
             break;
         case RELU:
             tens4D_func(lins_deriv, cl->lins_cache, drelu);
-            break;
-        case SOFTMAX:
             break;
     }
 

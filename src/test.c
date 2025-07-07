@@ -1,69 +1,51 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include "chess.h"
-
-move get_move(void)
-{
-    char from_file;
-    int from_rank;
-    char to_file;
-    int to_rank;
-    int flags;
-
-    printf("from\n");
-    scanf(" %c%d", &from_file, &from_rank);
-    printf("to\n");
-    scanf(" %c%d", &to_file, &to_rank);
-    printf("flags\n");
-    scanf(" %d", &flags);
-
-    return create_move(from_file - 'a' + 8 * (from_rank - 1), to_file - 'a' + 8 * (to_rank - 1), flags);
-}
+#include "nn.h"
+#include "utils.h"
 
 int main(void)
 {
-    init_attack_tables();
-    board b = init_board();
+    nn net = nn_alloc(3);
+    nn_add_layer(&net, recurrent_layer_alloc(1, 1, 1, 10, 5, TANH, TANH));
+    nn_add_layer(&net, concat_layer_alloc(1, 10, 5));
+    nn_add_layer(&net, dense_layer_alloc(5, 1, 10, SIG));
 
-    while (true) {
-        update_board(&b, WHITE);
-        bool found = false;
-        while (!found) {
-            draw_board(&b);
-            move white_move = get_move();
+    mat targets = mat_alloc(1, 10);
+    for (int i = 0; i < 10; ++i) {
+        mat_at(targets, i, 0) = i;
+    }
 
-            for (int i = 0; i < b.legal_moves.count; ++i) {
-                if (white_move == b.legal_moves.moves[i]) {
-                    apply_move(&b, WHITE, white_move);
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) printf("Illegal move.\n");
-        }
-
-        update_board(&b, BLACK);
-        found = false;
-        while (!found) {
-            draw_board(&b);
-            move black_move = get_move();
-
-            for (int i = 0; i < b.legal_moves.count; ++i) {
-                if (black_move == b.legal_moves.moves[i]) {
-                    apply_move(&b, BLACK, black_move);
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) printf("Illegal move.\n");
+    tens3D input = tens3D_alloc(1, 10, 5);
+    for (int i = 0; i < 5; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            tens3D_at(input, 0, j, i) = j * i + 5 * i + j;
         }
     }
 
-    destroy_attack_tables();
+    mat grad_in = mat_alloc(1, 10);
+
+    void *output;
+    void *grad_out;
+
+    for (int i = 0; i < 100; ++i) {
+        nn_forward(net, &input, &output);
+        mat *predicted = (mat *)output;
+
+        mat_sub(grad_in, *predicted, grad_in);
+        mat_print(grad_in);
+        printf("\n");
+
+        nn_backprop(net, &grad_in, &grad_out, 1e-3);
+        tens3D *grad_input = (tens3D *)grad_out;
+
+        free(predicted->vals);
+        tens3D_destroy(*grad_input);
+
+        free(output);
+        free(grad_out);
+    }
+
+    free(targets.vals);
+    tens3D_destroy(input);
+    free(grad_in.vals);
 
     return 0;
 }

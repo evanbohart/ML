@@ -1,13 +1,8 @@
 #ifndef CUBE_H
 #define CUBE_H
 
-extern "C" {
-    #include "nn.h"
-}
-
-#include <cstdint>
-#include <stack>
-using std::stack;
+#include <stdint.h>
+#include <stdbool.h>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
@@ -21,84 +16,44 @@ using std::stack;
 #define MASK_OUT_L 0x00FFFFFFFFFF0000
 #define MASK_OUT_R 0xFFFF000000FFFFFF
 
-enum color : uint8_t
-{
-    WHITE,
-    RED,
-    BLUE,
-    GREEN,
-    ORANGE,
-    YELLOW
-};
+typedef enum color { WHITE, RED, BLUE,
+                     GREEN, ORANGE, YELLOW } color;
 
-enum move : uint8_t
-{
-    L, LPRIME,
-    R, RPRIME,
-    D, DPRIME,
-    U, UPRIME,
-    F, FPRIME,
-    B, BPRIME
-};
-
-struct face
-{
-    color center; 
+typedef struct face {
+    color center;
     uint64_t bitboard;
-};
+} face;
 
-class cube
-{
-    private:
-        face faces[6];
-        void turn_face_clockwise(face &f);
-        void turn_face_counterclockwise(face &f);
-        void set_color(SDL_Renderer *renderer, color c);
-        void render_face(SDL_Renderer *renderer, const face &f, int x, int y);
-    public:
-        cube();
-        void render(SDL_Renderer *renderer, int x, int y);
-        void turn(const move &m);
-        void get_inputs(tens inputs) const;
-        void copy(const cube &c);
-        bool is_solved(void) const;
-        void scramble(int n);
-};
+#define roll_right(x, bits) ((x) >> (bits) | ((x) << (64 - (bits))))
+#define roll_left(x, bits) ((x) << (bits) | ((x) >> (64 - (bits))))
 
-struct state {
-    cube c;
-    double prior;
-    int visits;
-    double value;
-    state *parent;
-    state **children;
-};
+#define turn_face_clockwise(f) ((f).bitboard = roll_right((f).bitboard, 16))
+#define turn_face_counterclockwise(f) ((f).bitboard = roll_left((f).bitboard, 16))
 
-class tree
-{
-    private:
-        state *root;
-        void destroy(state *root);
-        void select_child(state *&root);
-        void traverse(state *&root);
-        void backup(state *leaf, double value);
-        void expand_state(cnet cn, net policy, state *root);
-        double uct(const state *root) const;
-        double eval(cnet cn, net value, state *root);
-        void generate_solution(stack<move> &solution, state *leaf);
-        void train_value(cnet cn, net value, stack<move> &solution, double rate, state *root);
-        void train_policy(cnet cn, net policy, stack<move> &solution, double rate, state *root);
- 
-    public:
-        tree(const cube &c);
-        ~tree();
-        int mcts(cnet cn, net policy, stack<move> &solution, int n);
-        int mcts(cnet cn, net value, net policy, stack<move> &solution, int n);
-        void train_value(cnet cn, net value, stack<move> &solution, double rate);
-        void train_policy(cnet cn, net policy, stack<move> &solution, double rate);
-};
+typedef struct cube {
+    face faces[6];
+} cube;
 
-uint64_t roll_left(uint64_t x, int bits);
-uint64_t roll_right(uint64_t x, int bits);
+cube init_cube(void);
+
+void turn_cube_L(cube *c);
+void turn_cube_LPRIME(cube *c);
+void turn_cube_R(cube *c);
+void turn_cube_RPRIME(cube *c);
+void turn_cube_D(cube *c);
+void turn_cube_DPRIME(cube *c);
+void turn_cube_U(cube *c);
+void turn_cube_UPRIME(cube *c);
+void turn_cube_F(cube *c);
+void turn_cube_FPRIME(cube *c);
+void turn_cube_B(cube *c);
+void turn_cube_BPRIME(cube *c);
+
+bool is_solved(cube c);
+void scramble(cube *c, int n);
+
+void set_color(SDL_Renderer *renderer, color c);
+void render_face(SDL_Renderer *renderer, face f, int x, int y);
+void render_cube(SDL_Renderer *renderer, cube c, int x, int y);
 
 #endif

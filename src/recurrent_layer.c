@@ -13,6 +13,7 @@ layer recurrent_layer_alloc(int input_size, int hidden_size,
     rl->hidden_size = hidden_size;
     rl->output_size = output_size;
     rl->batch_size = batch_size;
+    rl->steps = steps;
     rl->weights_input = mat_alloc(hidden_size, input_size);
     rl->weights_hidden = mat_alloc(hidden_size, hidden_size);
     rl->weights_output = mat_alloc(output_size, hidden_size);
@@ -56,7 +57,6 @@ void recurrent_forward(layer l, void *input, void **output)
 
     mat dot_input = mat_alloc(rl->hidden_size, rl->batch_size);
     mat dot_hidden = mat_alloc(rl->hidden_size, rl->batch_size);
-    mat dot_output = mat_alloc(rl->output_size, rl->batch_size);
 
     for (int i = 0; i < rl->steps; ++i) {
         mat_dot(dot_input, rl->weights_input, tens3D_input->mats[i]);
@@ -80,7 +80,13 @@ void recurrent_forward(layer l, void *input, void **output)
         }
 
         mat_add(rl->lins_cache_hidden.mats[i], dot_input, dot_hidden);
-        mat_add(rl->lins_cache_hidden.mats[i], rl->lins_cache_hidden.mats[i], rl->biases_hidden);
+
+        #pragma omp parallel for collapse(2) schedule(static)
+        for (int j = 0; j < rl->hidden_size; ++j) {
+            for (int k = 0; k < rl->batch_size; ++k) {
+                tens3D_at(rl->lins_cache_hidden, j, k, i) += mat_at(rl->biases_hidden, j, 0);
+            }
+        }
 
         switch (rl->activation_hidden) {
             case LIN:
@@ -97,8 +103,14 @@ void recurrent_forward(layer l, void *input, void **output)
                 break;
         }
 
-        mat_dot(dot_output, rl->weights_output, rl->acts_cache_hidden.mats[i]);
-        mat_add(rl->lins_cache_output.mats[i], dot_output, rl->biases_output);
+        mat_dot(rl->lins_cache_output.mats[i], rl->weights_output, rl->acts_cache_hidden.mats[i]);
+
+        #pragma omp parallel for collapse(2) schedule(static)
+        for (int j = 0; j < rl->hidden_size; ++j) {
+            for (int k = 0; k < rl->batch_size; ++k) {
+                tens3D_at(rl->lins_cache_output, j, k, i) += mat_at(rl->biases_output, j, 0);
+            }
+        }
 
         switch (rl->activation_output) {
             case LIN:
@@ -120,7 +132,6 @@ void recurrent_forward(layer l, void *input, void **output)
 
     free(dot_input.vals);
     free(dot_hidden.vals);
-    free(dot_output.vals);
 }
 
 void recurrent_backprop(layer l, void *grad_in, void **grad_out, float rate)

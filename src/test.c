@@ -6,11 +6,12 @@ int main(void)
     nn net = nn_alloc(3);
     nn_add_layer(&net, recurrent_layer_alloc(1, 1, 1, 10, 5, TANH, TANH));
     nn_add_layer(&net, concat_layer_alloc(1, 10, 5));
-    nn_add_layer(&net, dense_layer_alloc(5, 1, 10, SIG));
+    nn_add_layer(&net, dense_layer_alloc(5, 1, 10, RELU));
+    nn_glorot(net);
 
     mat targets = mat_alloc(1, 10);
     for (int i = 0; i < 10; ++i) {
-        mat_at(targets, i, 0) = i;
+        mat_at(targets, 0, i) = i;
     }
 
     tens3D input = tens3D_alloc(1, 10, 5);

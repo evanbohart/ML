@@ -7,8 +7,8 @@ layer concat_layer_alloc(int input_size, int batch_size, int steps)
 {
     concat_layer *cl = malloc(sizeof(concat_layer));
     cl->input_size = input_size;
-    cl->batch_size = batch_size;
     cl->output_size = input_size * steps;
+    cl->batch_size = batch_size;
     cl->steps = steps;
 
     layer l;

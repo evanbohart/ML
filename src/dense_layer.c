@@ -40,6 +40,7 @@ void dense_forward(layer l, void *input, void **output)
     assert(mat_input->cols == dl->batch_size);
 
     mat *mat_output = malloc(sizeof(mat));
+    *mat_output = mat_alloc(dl->output_size, dl->batch_size);
 
     mat_copy(dl->input_cache, *mat_input);
 
@@ -51,8 +52,6 @@ void dense_forward(layer l, void *input, void **output)
             mat_at(dl->lins_cache, i, j) += mat_at(dl->biases, i, 0);
         }
     }
-
-    *mat_output = mat_alloc(dl->output_size, dl->batch_size);
 
     switch (dl->activation) {
         case LIN:
@@ -81,6 +80,7 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, float rate)
     assert(mat_grad_in->cols == dl->batch_size);
 
     mat *mat_grad_out = malloc(sizeof(mat));
+    *mat_grad_out = mat_alloc(dl->input_size, dl->batch_size);
 
     mat lins_deriv = mat_alloc(dl->output_size, dl->batch_size);
     mat grad = mat_alloc(dl->output_size, dl->batch_size);
@@ -135,7 +135,6 @@ void dense_backprop(layer l, void *grad_in, void **grad_out, float rate)
     mat weights_trans = mat_alloc(dl->weights.cols, dl->weights.rows);
     mat_trans(weights_trans, dl->weights);
 
-    *mat_grad_out = mat_alloc(weights_trans.rows, grad.cols);
     mat_dot(*mat_grad_out, weights_trans, grad);
 
     *grad_out = mat_grad_out;

@@ -17,7 +17,7 @@ int main(void)
     tens3D input = tens3D_alloc(1, 10, 5);
     for (int i = 0; i < 5; ++i) {
         for (int j = 0; j < 10; ++j) {
-            tens3D_at(input, 0, j, i) = (j * i + 5 * i + j) / 65.0f;
+            tens3D_at(input, 0, j, i) = j;
         }
     }
 
@@ -27,8 +27,8 @@ int main(void)
     void *grad_out;
 
     for (int i = 0; i < 100 * 1000; ++i) {
-	output = NULL;
-	grad_out = NULL;
+    	output = NULL;
+	    grad_out = NULL;
 
         nn_forward(net, &input, &output);
         mat *predicted = (mat *)output;

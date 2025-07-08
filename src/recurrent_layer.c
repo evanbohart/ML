@@ -106,7 +106,7 @@ void recurrent_forward(layer l, void *input, void **output)
         mat_dot(rl->lins_cache_output.mats[i], rl->weights_output, rl->acts_cache_hidden.mats[i]);
 
         #pragma omp parallel for collapse(2) schedule(static)
-        for (int j = 0; j < rl->hidden_size; ++j) {
+        for (int j = 0; j < rl->output_size; ++j) {
             for (int k = 0; k < rl->batch_size; ++k) {
                 tens3D_at(rl->lins_cache_output, j, k, i) += mat_at(rl->biases_output, j, 0);
             }
@@ -296,32 +296,32 @@ void recurrent_backprop(layer l, void *grad_in, void **grad_out, float rate)
 
     *grad_out = tens3D_grad_out;
 
-    mat_scale(dw_input, dw_input, 1.0 / rl->batch_size);
+    mat_scale(dw_input, dw_input, 1.0f / rl->batch_size);
     mat_func(dw_input, dw_input, clip);
     mat_scale(dw_input, dw_input, rate);
     mat_sub(rl->weights_input, rl->weights_input, dw_input);
 
-    mat_scale(dw_hidden, dw_hidden, 1.0 / rl->batch_size);
+    mat_scale(dw_hidden, dw_hidden, 1.0f / rl->batch_size);
     mat_func(dw_hidden, dw_hidden, clip);
     mat_scale(dw_hidden, dw_hidden, rate);
     mat_sub(rl->weights_hidden, rl->weights_hidden, dw_hidden);
 
-    mat_scale(dw_output, dw_output, 1.0 / rl->batch_size);
+    mat_scale(dw_output, dw_output, 1.0f / rl->batch_size);
     mat_func(dw_output, dw_output, clip);
     mat_scale(dw_output, dw_output, rate);
     mat_sub(rl->weights_output, rl->weights_output, dw_output);
 
-    mat_scale(db_hidden, db_hidden, 1.0 / rl->batch_size);
+    mat_scale(db_hidden, db_hidden, 1.0f / rl->batch_size);
     mat_func(db_hidden, db_hidden, clip);
     mat_scale(db_hidden, db_hidden, rate);
     mat_sub(rl->biases_hidden, rl->biases_hidden, db_hidden);
 
-    mat_scale(db_output, db_output, 1.0 / rl->batch_size);
+    mat_scale(db_output, db_output, 1.0f / rl->batch_size);
     mat_func(db_output, db_output, clip);
     mat_scale(db_output, db_output, rate);
     mat_sub(rl->biases_output, rl->biases_output, db_output);
 
-    mat_scale(dinitial_hidden, dinitial_hidden, 1.0 / rl->batch_size);
+    mat_scale(dinitial_hidden, dinitial_hidden, 1.0f / rl->batch_size);
     mat_func(dinitial_hidden, dinitial_hidden, clip);
     mat_scale(dinitial_hidden, dinitial_hidden, rate);
     mat_sub(rl->initial_hidden, rl->initial_hidden, dinitial_hidden);
@@ -371,9 +371,9 @@ void recurrent_he(layer l)
 {
     recurrent_layer *rl = (recurrent_layer *)l.data;
 
-    mat_normal(rl->weights_input, 0, sqrt(2.0 / rl->input_size));
-    mat_normal(rl->weights_hidden, 0, sqrt(2.0 / rl->hidden_size));
-    mat_normal(rl->weights_output, 0, sqrt(2.0 / rl->hidden_size));
+    mat_normal(rl->weights_input, 0, sqrt(2.0f / rl->input_size));
+    mat_normal(rl->weights_hidden, 0, sqrt(2.0f / rl->hidden_size));
+    mat_normal(rl->weights_output, 0, sqrt(2.0f / rl->hidden_size));
     mat_fill(rl->biases_hidden, 0);
     mat_fill(rl->biases_output, 0);
     mat_fill(rl->initial_hidden, 0);
@@ -383,9 +383,9 @@ void recurrent_glorot(layer l)
 {
     recurrent_layer *rl = (recurrent_layer *)l.data;
 
-    mat_normal(rl->weights_input, 0, sqrt(2.0 / (rl->input_size + rl->hidden_size)));
-    mat_normal(rl->weights_hidden, 0, sqrt(2.0 / (rl->hidden_size + rl->hidden_size)));
-    mat_normal(rl->weights_output, 0, sqrt(2.0 / (rl->hidden_size + rl->output_size)));
+    mat_normal(rl->weights_input, 0, sqrt(2.0f / (rl->input_size + rl->hidden_size)));
+    mat_normal(rl->weights_hidden, 0, sqrt(2.0f / (rl->hidden_size + rl->hidden_size)));
+    mat_normal(rl->weights_output, 0, sqrt(2.0f / (rl->hidden_size + rl->output_size)));
     mat_fill(rl->biases_hidden, 0);
     mat_fill(rl->biases_output, 0);
     mat_fill(rl->initial_hidden, 0);

@@ -11,7 +11,7 @@ float sig(float x) { return 1 / (1 + exp(x)); }
 
 float dsig(float x) { return sig(x) * (1 - sig(x)); }
 
-float dtanh(float x) { return 1 - pow(tanh(x), 2); }
+float dtanh(float x) { return 1 - pow(tanhf(x), 2); }
 
 float relu(float x) { return x * (x > 0); }
 
@@ -55,6 +55,10 @@ void nn_forward(nn n, void *inputs, void **outputs)
                 mat *mat_inputs = (mat *)current_inputs;
                 free(mat_inputs->vals);
             }
+	    else if (n.layers[i].type == RECURRENT || n.layers[i].type == CONCAT) {
+		tens3D *tens3D_inputs = (tens3D *)current_inputs;
+		tens3D_destroy(*tens3D_inputs);
+	    }
             else {
                 tens4D *tens4D_inputs = (tens4D *)current_inputs;
                 tens4D_destroy(*tens4D_inputs);
@@ -81,10 +85,14 @@ void nn_backprop(nn n, void *grad_in, void **grad_out, float rate)
 
         if (i < n.num_layers - 1) {
             if (n.layers[i].type == DENSE || n.layers[i].type == FLATTEN ||
-                n.layers[i].type == DENSE_DROPOUT) {
+                n.layers[i].type == DENSE_DROPOUT || n.layers[i].type == CONCAT) {
                 mat *mat_grad_in = (mat *)current_grad_in;
                 free(mat_grad_in->vals);
             }
+	    else if (n.layers[i].type == RECURRENT) {
+		tens3D *tens3D_grad_in = (tens3D *)current_grad_in;
+		tens3D_destroy(*tens3D_grad_in);
+	    }
             else {
                 tens4D *tens4D_grad_in = (tens4D *)current_grad_in;
                 tens4D_destroy(*tens4D_grad_in);
@@ -111,7 +119,7 @@ void nn_destroy(nn n)
 void nn_he(nn n)
 {
     for (int i = 0; i < n.num_layers; ++i) {
-        if (n.layers[i].type == DENSE || n.layers[i].type == CONV) {
+        if (n.layers[i].type == DENSE || n.layers[i].type == CONV || n.layers[i].type == RECURRENT) {
             n.layers[i].he(n.layers[i]);
         }
     }
@@ -120,7 +128,7 @@ void nn_he(nn n)
 void nn_glorot(nn n)
 {
     for (int i = 0; i < n.num_layers; ++i) {
-        if (n.layers[i].type == DENSE || n.layers[i].type == CONV) {
+        if (n.layers[i].type == DENSE || n.layers[i].type == CONV || n.layers[i].type == RECURRENT) {
             n.layers[i].glorot(n.layers[i]);
         }
     }

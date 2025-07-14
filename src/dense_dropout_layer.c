@@ -3,14 +3,14 @@
 #include "nn.h"
 #include "utils.h"
 
-layer dense_dropout_layer_alloc(int input_size, int batch_size, float rate)
+layer dense_dropout_layer_alloc(int x_size, int batch_size, float rate)
 {
     dense_dropout_layer *ddl = malloc(sizeof(dense_dropout_layer));
 
-    ddl->input_size = input_size;
+    ddl->x_size = x_size;
     ddl->batch_size = batch_size;
     ddl->rate = rate;
-    ddl->mask = mat_alloc(input_size, batch_size);
+    ddl->mask = mat_alloc(x_size, batch_size);
 
     layer l;
     l.type = DENSE_DROPOUT;
@@ -18,8 +18,7 @@ layer dense_dropout_layer_alloc(int input_size, int batch_size, float rate)
     l.forward = dense_dropout_forward;
     l.backprop = dense_dropout_backprop;
     l.destroy = dense_dropout_destroy;
-    l.glorot = NULL;
-    l.he = NULL;
+    l.init = NULL;
     l.print = NULL;
     l.save = NULL;
     l.load = NULL;
@@ -27,27 +26,27 @@ layer dense_dropout_layer_alloc(int input_size, int batch_size, float rate)
     return l;
 }
 
-void dense_dropout_forward(layer l, void *inputs, void **outputs)
+void dense_dropout_forward(layer l, void *input, void **output)
 {
     dense_dropout_layer *ddl = (dense_dropout_layer *)l.data;
-    mat *mat_inputs = (mat *)inputs;
+    mat *mat_input = (mat *)input;
 
-    assert(mat_inputs->rows == ddl->input_size);
-    assert(mat_inputs->cols == ddl->batch_size);
+    assert(mat_input->rows == ddl->x_size);
+    assert(mat_input->cols == ddl->batch_size);
 
-    mat *mat_outputs = malloc(sizeof(mat));
+    mat *mat_output = malloc(sizeof(mat));
 
     #pragma omp parallel for collapse(2) schedule(static)
-    for (int i = 0; i < ddl->input_size; ++i) {
+    for (int i = 0; i < ddl->x_size; ++i) {
         for (int j = 0; j < ddl->batch_size; ++j) {
-            mat_at(ddl->mask, i, j) = rand_float(0, 1) > ddl->rate ? 1 : 0;
+            mat_at(ddl->mask, i, j) = rand_float(0.0f, 1.0f) > ddl->rate ? 1.0f : 0.0f;
         }
     }
 
-    *mat_outputs = mat_alloc(ddl->input_size, ddl->batch_size);
-    mat_had(*mat_outputs, *mat_inputs, ddl->mask);
+    *mat_output = mat_alloc(ddl->x_size, ddl->batch_size);
+    mat_had(*mat_output, *mat_input, ddl->mask);
 
-    *outputs = mat_outputs;
+    *output = mat_output;
 }
 
 void dense_dropout_backprop(layer l, void *grad_in, void **grad_out, float rate)
@@ -55,11 +54,11 @@ void dense_dropout_backprop(layer l, void *grad_in, void **grad_out, float rate)
     dense_dropout_layer *ddl = (dense_dropout_layer *)l.data;
     mat *mat_grad_in = (mat *)grad_in;
 
-    assert(mat_grad_in->rows == ddl->input_size);
+    assert(mat_grad_in->rows == ddl->x_size);
     assert(mat_grad_in->cols == ddl->batch_size);
 
     mat *mat_grad_out = malloc(sizeof(mat));
-    *mat_grad_out = mat_alloc(ddl->input_size, ddl->batch_size);
+    *mat_grad_out = mat_alloc(ddl->x_size, ddl->batch_size);
 
     mat_had(*mat_grad_out, *mat_grad_in, ddl->mask);
 

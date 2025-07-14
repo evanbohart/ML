@@ -3,22 +3,23 @@
 #include <omp.h>
 #include "nn.h"
 
-layer concat_layer_alloc(int input_size, int batch_size, int steps)
+layer concat_layer_alloc(int x_size, int batch_size, int steps)
 {
     concat_layer *cl = malloc(sizeof(concat_layer));
-    cl->input_size = input_size;
-    cl->output_size = input_size * steps;
+
+    cl->x_size = x_size;
+    cl->y_size = x_size * steps;
     cl->batch_size = batch_size;
     cl->steps = steps;
 
     layer l;
+
     l.type = CONCAT;
     l.data = cl;
     l.forward = concat_forward;
     l.backprop = concat_backprop;
     l.destroy = concat_destroy;
-    l.he = NULL;
-    l.glorot = NULL;
+    l.init = NULL;
     l.print = NULL;
     l.save = NULL;
     l.load = NULL;
@@ -26,53 +27,53 @@ layer concat_layer_alloc(int input_size, int batch_size, int steps)
     return l;
 }
 
-void concat_forward(layer l, void *input, void **output)
+void concat_forward(layer l, void *x, void **y)
 {
     concat_layer *cl = (concat_layer *)l.data;
 
-    tens3D *tens3D_input = (tens3D *)input;
+    tens3D *tens3D_x = (tens3D *)x;
 
-    assert(tens3D_input->rows == cl->input_size);
-    assert(tens3D_input->cols == cl->batch_size);
-    assert(tens3D_input->depth == cl->steps);
+    assert(tens3D_x->rows == cl->x_size);
+    assert(tens3D_x->cols == cl->batch_size);
+    assert(tens3D_x->depth == cl->steps);
 
-    mat *mat_output = malloc(sizeof(mat));
-    *mat_output = mat_alloc(cl->output_size, cl->batch_size);
+    mat *mat_y = malloc(sizeof(mat));
+    *mat_y = mat_alloc(cl->y_size, cl->batch_size);
 
     #pragma omp parallel for collapse(3) schedule(static)
     for (int i = 0; i < cl->steps; ++i) {
-        for (int j = 0; j < cl->input_size; ++j) {
+        for (int j = 0; j < cl->x_size; ++j) {
             for (int k = 0; k < cl->batch_size; ++k) {
-                mat_at(*mat_output, i * cl->input_size + j, k) = tens3D_at(*tens3D_input, j, k, i);
+                mat_at(*mat_y, i * cl->x_size + j, k) = tens3D_at(*tens3D_x, j, k, i);
             }
         }
     }
 
-    *output = mat_output;
+    *y = mat_y;
 }
 
-void concat_backprop(layer l, void *grad_in, void **grad_out, float rate)
+void concat_backprop(layer l, void *dy, void **dx, float rate)
 {
     concat_layer *cl = (concat_layer *)l.data;
 
-    mat *mat_grad_in = (mat *)grad_in;
+    mat *mat_dy = (mat *)dy;
 
-    assert(mat_grad_in->rows == cl->output_size);
-    assert(mat_grad_in->cols == cl->batch_size);
+    assert(mat_dy->rows == cl->y_size);
+    assert(mat_dy->cols == cl->batch_size);
 
-    tens3D *tens3D_grad_out = malloc(sizeof(tens3D));
-    *tens3D_grad_out = tens3D_alloc(cl->input_size, cl->batch_size, cl->steps);
+    tens3D *tens3D_dx = malloc(sizeof(tens3D));
+    *tens3D_dx = tens3D_alloc(cl->x_size, cl->batch_size, cl->steps);
 
     #pragma omp parallel for collapse(3) schedule(static)
     for (int i = 0; i < cl->steps; ++i) {
-        for (int j = 0; j < cl->input_size; ++j) {
+        for (int j = 0; j < cl->x_size; ++j) {
             for (int k = 0; k < cl->batch_size; ++k) {
-                tens3D_at(*tens3D_grad_out, j, k, i) = mat_at(*mat_grad_in, i * cl->input_size + j, k);
+                tens3D_at(*tens3D_dx, j, k, i) = mat_at(*mat_dy, i * cl->x_size + j, k);
             }
         }
     }
 
-    *grad_out = tens3D_grad_out;
+    *dx = tens3D_dx;
 }
 
 void concat_destroy(layer l)

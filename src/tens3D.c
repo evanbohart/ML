@@ -41,106 +41,106 @@ void tens3D_fill(tens3D t, float val)
     }
 }
 
-void tens3D_copy(tens3D destination, tens3D t)
+void tens3D_copy(tens3D dest, tens3D t)
 {
-    assert(destination.rows == t.rows);
-    assert(destination.cols == t.cols);
-    assert(destination.depth == t.depth);
+    assert(dest.rows == t.rows);
+    assert(dest.cols == t.cols);
+    assert(dest.depth == t.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_copy(destination.mats[i], t.mats[i]);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_copy(dest.mats[i], t.mats[i]);
     }
 }
 
-void tens3D_add(tens3D destination, tens3D t1, tens3D t2)
+void tens3D_add(tens3D dest, tens3D t1, tens3D t2)
 {
-    assert(destination.rows == t1.rows);
-    assert(destination.cols == t1.cols);
-    assert(destination.depth == t1.depth);
+    assert(dest.rows == t1.rows);
+    assert(dest.cols == t1.cols);
+    assert(dest.depth == t1.depth);
     assert(t1.rows == t2.rows);
     assert(t1.cols == t2.cols);
     assert(t1.depth == t2.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_add(destination.mats[i], t1.mats[i], t2.mats[i]);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_add(dest.mats[i], t1.mats[i], t2.mats[i]);
     }
 }
 
-void tens3D_sub(tens3D destination, tens3D t1, tens3D t2)
+void tens3D_sub(tens3D dest, tens3D t1, tens3D t2)
 {
-    assert(destination.depth == t1.depth);
+    assert(dest.depth == t1.depth);
     assert(t1.depth == t2.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_sub(destination.mats[i], t1.mats[i], t2.mats[i]);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_sub(dest.mats[i], t1.mats[i], t2.mats[i]);
     }
 }
 
-void tens3D_had(tens3D destination, tens3D t1, tens3D t2)
+void tens3D_had(tens3D dest, tens3D t1, tens3D t2)
 {
-    assert(destination.depth == t1.depth);
+    assert(dest.depth == t1.depth);
     assert(t1.depth == t2.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_had(destination.mats[i], t1.mats[i], t2.mats[i]);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_had(dest.mats[i], t1.mats[i], t2.mats[i]);
     }
 }
 
-void tens3D_trans(tens3D destination, tens3D t)
+void tens3D_trans(tens3D dest, tens3D t)
 {
-    assert(destination.depth == t.depth);
+    assert(dest.depth == t.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_trans(destination.mats[i], t.mats[i]);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_trans(dest.mats[i], t.mats[i]);
     }
 }
 
-void tens3D_180(tens3D destination, tens3D t)
+void tens3D_180(tens3D dest, tens3D t)
 {
-    assert(destination.depth == t.depth);
+    assert(dest.depth == t.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_180(destination.mats[i], t.mats[i]);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_180(dest.mats[i], t.mats[i]);
     }
 }
 
-void tens3D_scale(tens3D destination, tens3D t, float a)
+void tens3D_scale(tens3D dest, tens3D t, float a)
 {
-    assert(destination.rows == t.rows);
-    assert(destination.cols == t.cols);
-    assert(destination.depth == t.depth);
+    assert(dest.rows == t.rows);
+    assert(dest.cols == t.cols);
+    assert(dest.depth == t.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_scale(destination.mats[i], t.mats[i], a);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_scale(dest.mats[i], t.mats[i], a);
     }
 }
 
-void tens3D_func(tens3D destination, tens3D t, func f)
+void tens3D_func(tens3D dest, tens3D t, func f)
 {
-    assert(destination.depth == t.depth);
+    assert(dest.depth == t.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_func(destination.mats[i], t.mats[i], f);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_func(dest.mats[i], t.mats[i], f);
     }
 }
 
-void tens3D_pad(tens3D destination, tens3D t, padding_t padding)
+void tens3D_pad(tens3D dest, tens3D t, padding_t padding)
 {
-    assert(destination.rows > t.rows);
-    assert(destination.cols > t.cols);
-    assert(destination.depth == t.depth);
+    assert(dest.rows > t.rows);
+    assert(dest.cols > t.cols);
+    assert(dest.depth == t.depth);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.depth; ++i) {
-        mat_pad(destination.mats[i], t.mats[i], padding);
+    for (int i = 0; i < dest.depth; ++i) {
+        mat_pad(dest.mats[i], t.mats[i], padding);
     }
 }
 

@@ -41,85 +41,85 @@ void tens4D_fill(tens4D t, float val)
     }
 }
 
-void tens4D_copy(tens4D destination, tens4D t)
+void tens4D_copy(tens4D dest, tens4D t)
 {
-    assert(destination.batches == t.batches);
+    assert(dest.batches == t.batches);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_copy(destination.tens3Ds[i], t.tens3Ds[i]);
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_copy(dest.tens3Ds[i], t.tens3Ds[i]);
     }
 }
 
-void tens4D_sub(tens4D destination, tens4D t1, tens4D t2)
+void tens4D_sub(tens4D dest, tens4D t1, tens4D t2)
 {
-    assert(destination.batches == t1.batches);
-    assert(destination.batches == t2.batches);
+    assert(dest.batches == t1.batches);
+    assert(dest.batches == t2.batches);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_sub(destination.tens3Ds[i], t1.tens3Ds[i], t2.tens3Ds[i]);
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_sub(dest.tens3Ds[i], t1.tens3Ds[i], t2.tens3Ds[i]);
     }
 }
 
-void tens4D_had(tens4D destination, tens4D t1, tens4D t2)
+void tens4D_had(tens4D dest, tens4D t1, tens4D t2)
 {
-    assert(destination.batches == t1.batches);
-    assert(destination.batches == t2.batches);
+    assert(dest.batches == t1.batches);
+    assert(dest.batches == t2.batches);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_had(destination.tens3Ds[i], t1.tens3Ds[i], t2.tens3Ds[i]);
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_had(dest.tens3Ds[i], t1.tens3Ds[i], t2.tens3Ds[i]);
     }
 }
 
-void tens4D_trans(tens4D destination, tens4D t)
+void tens4D_trans(tens4D dest, tens4D t)
 {
-    assert(destination.batches == t.batches);
+    assert(dest.batches == t.batches);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_trans(destination.tens3Ds[i], t.tens3Ds[i]);
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_trans(dest.tens3Ds[i], t.tens3Ds[i]);
     }
 }
 
-void tens4D_180(tens4D destination, tens4D t)
+void tens4D_180(tens4D dest, tens4D t)
 {
-    assert(destination.batches == t.batches);
+    assert(dest.batches == t.batches);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_180(destination.tens3Ds[i], t.tens3Ds[i]);
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_180(dest.tens3Ds[i], t.tens3Ds[i]);
     }
 }
 
-void tens4D_scale(tens4D destination, tens4D t, float a)
+void tens4D_scale(tens4D dest, tens4D t, float a)
 {
-    assert(destination.batches == t.batches);
+    assert(dest.batches == t.batches);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_scale(destination.tens3Ds[i], t.tens3Ds[i], a);
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_scale(dest.tens3Ds[i], t.tens3Ds[i], a);
     }
 }
 
-void tens4D_func(tens4D destination, tens4D t, func f)
+void tens4D_func(tens4D dest, tens4D t, func f)
 {
-    assert(destination.batches == t.batches);
+    assert(dest.batches == t.batches);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_func(destination.tens3Ds[i], t.tens3Ds[i], f);
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_func(dest.tens3Ds[i], t.tens3Ds[i], f);
     }
 }
 
-void tens4D_pad(tens4D destination, tens4D t, padding_t padding)
+void tens4D_pad(tens4D dest, tens4D t, padding_t padding)
 {
-    assert(destination.batches == t.batches);
+    assert(dest.batches == t.batches);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < destination.batches; ++i) {
-        tens3D_pad(destination.tens3Ds[i], t.tens3Ds[i], padding);
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_pad(dest.tens3Ds[i], t.tens3Ds[i], padding);
     }
 }
 

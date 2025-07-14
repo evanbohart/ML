@@ -42,128 +42,128 @@ void mat_fill(mat m, float val)
 	}
 }
 
-void mat_copy(mat destination, mat m)
+void mat_copy(mat dest, mat m)
 {
-	assert(destination.rows == m.rows);
-	assert(destination.cols == m.cols);
+	assert(dest.rows == m.rows);
+	assert(dest.cols == m.cols);
 
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = mat_at(m, i, j);
+	for (int i = 0; i < dest.rows; ++i) {
+		for (int j = 0; j < dest.cols; ++j) {
+			mat_at(dest, i, j) = mat_at(m, i, j);
 		}
 	}
 }
 
-void mat_add(mat destination, mat m1, mat m2)
-{
-	assert(m1.rows == m2.rows);
-	assert(m1.cols == m2.cols);
-	assert(destination.rows == m1.rows);
-	assert(destination.cols == m1.cols);
-
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = mat_at(m1, i, j) + mat_at(m2, i, j);
-		}
-	}
-}
-
-void mat_sub(mat destination, mat m1, mat m2)
+void mat_add(mat dest, mat m1, mat m2)
 {
 	assert(m1.rows == m2.rows);
 	assert(m1.cols == m2.cols);
-	assert(destination.rows == m1.rows);
-	assert(destination.cols == m1.cols);
+	assert(dest.rows == m1.rows);
+	assert(dest.cols == m1.cols);
 
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = mat_at(m1, i, j) - mat_at(m2, i, j);
+	for (int i = 0; i < dest.rows; ++i) {
+		for (int j = 0; j < dest.cols; ++j) {
+			mat_at(dest, i, j) = mat_at(m1, i, j) + mat_at(m2, i, j);
 		}
 	}
 }
 
-void mat_dot(mat destination, mat m1, mat m2)
+void mat_sub(mat dest, mat m1, mat m2)
+{
+	assert(m1.rows == m2.rows);
+	assert(m1.cols == m2.cols);
+	assert(dest.rows == m1.rows);
+	assert(dest.cols == m1.cols);
+
+	for (int i = 0; i < dest.rows; ++i) {
+		for (int j = 0; j < dest.cols; ++j) {
+			mat_at(dest, i, j) = mat_at(m1, i, j) - mat_at(m2, i, j);
+		}
+	}
+}
+
+void mat_dot(mat dest, mat m1, mat m2)
 {
 	assert(m1.cols == m2.rows);
-	assert(destination.rows == m1.rows);
-	assert(destination.cols == m2.cols);
+	assert(dest.rows == m1.rows);
+	assert(dest.cols == m2.cols);
 
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = 0;
+	for (int i = 0; i < dest.rows; ++i) {
+		for (int j = 0; j < dest.cols; ++j) {
+			mat_at(dest, i, j) = 0;
 			for (int k = 0; k < m1.cols; ++k) {
-				mat_at(destination, i, j) += mat_at(m1, i, k) * mat_at(m2, k, j);
+				mat_at(dest, i, j) += mat_at(m1, i, k) * mat_at(m2, k, j);
 			}
 		}
 	}
 }
 
-void mat_had(mat destination, mat m1, mat m2)
+void mat_had(mat dest, mat m1, mat m2)
 {
 	assert(m1.rows == m2.rows);
 	assert(m1.cols == m2.cols);
-	assert(destination.rows == m1.rows);
-	assert(destination.cols == m1.cols);
+	assert(dest.rows == m1.rows);
+	assert(dest.cols == m1.cols);
 
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = mat_at(m1, i, j) * mat_at(m2, i, j);
+	for (int i = 0; i < dest.rows; ++i) {
+		for (int j = 0; j < dest.cols; ++j) {
+			mat_at(dest, i, j) = mat_at(m1, i, j) * mat_at(m2, i, j);
 		}
 	}
 }
 
-void mat_trans(mat destination, mat m)
+void mat_trans(mat dest, mat m)
 {
-	assert(destination.rows == m.cols);
-	assert(destination.cols == m.rows);
+	assert(dest.rows == m.cols);
+	assert(dest.cols == m.rows);
 
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = mat_at(m, j, i);
+	for (int i = 0; i < dest.rows; ++i) {
+		for (int j = 0; j < dest.cols; ++j) {
+			mat_at(dest, i, j) = mat_at(m, j, i);
 		}
 	}
 }
 
-void mat_180(mat destination, mat m)
+void mat_180(mat dest, mat m)
 {
-    assert(destination.rows == m.rows);
-    assert(destination.cols == m.cols);
+    assert(dest.rows == m.rows);
+    assert(dest.cols == m.cols);
 
-    for (int i = 0; i < destination.rows; ++i) {
-        for (int j = 0; j < destination.cols; ++j) {
-            mat_at(destination, i, j) = mat_at(m, m.rows - 1 - i, m.cols - 1 - j);
+    for (int i = 0; i < dest.rows; ++i) {
+        for (int j = 0; j < dest.cols; ++j) {
+            mat_at(dest, i, j) = mat_at(m, m.rows - 1 - i, m.cols - 1 - j);
         }
     }
 }
 
-void mat_scale(mat destination, mat m, float a)
+void mat_scale(mat dest, mat m, float a)
 {
-	assert(destination.rows == m.rows);
-	assert(destination.cols == m.cols);
+	assert(dest.rows == m.rows);
+	assert(dest.cols == m.cols);
 
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = a * mat_at(m, i, j);
+	for (int i = 0; i < dest.rows; ++i) {
+		for (int j = 0; j < dest.cols; ++j) {
+			mat_at(dest, i, j) = a * mat_at(m, i, j);
 		}
 	}
 }
 
-void mat_func(mat destination, mat m, func f)
+void mat_func(mat dest, mat m, func f)
 {
-	assert(destination.rows == m.rows);
-	assert(destination.cols == m.cols);
+	assert(dest.rows == m.rows);
+	assert(dest.cols == m.cols);
 
-	for (int i = 0; i < destination.rows; ++i) {
-		for (int j = 0; j < destination.cols; ++j) {
-			mat_at(destination, i, j) = f(mat_at(m, i, j));
+	for (int i = 0; i < dest.rows; ++i) {
+		for (int j = 0; j < dest.cols; ++j) {
+			mat_at(dest, i, j) = f(mat_at(m, i, j));
 		}
 	}
 }
 
-void mat_softmax(mat destination, mat m)
+void mat_softmax(mat dest, mat m)
 {
-    assert(destination.rows == m.rows);
-    assert(destination.cols == m.cols);
+    assert(dest.rows == m.rows);
+    assert(dest.cols == m.cols);
 
     for (int i = 0; i < m.cols; ++i) {
         float max = -FLT_MAX;
@@ -172,46 +172,46 @@ void mat_softmax(mat destination, mat m)
         }
 
         float sum = 0.0f;
-        for (int j = 0; j < destination.rows; ++j) {
+        for (int j = 0; j < dest.rows; ++j) {
             float val = exp(mat_at(m, j, i) - max);
-            mat_at(destination, j, i) = val;
+            mat_at(dest, j, i) = val;
             sum += val;
         }
 
-        for (int j = 0; j < destination.rows; ++j) {
-            mat_at(destination, j, i) /= sum;
+        for (int j = 0; j < dest.rows; ++j) {
+            mat_at(dest, j, i) /= sum;
         }
     }
 }
 
-void mat_pad(mat destination, mat m, padding_t padding)
+void mat_pad(mat dest, mat m, padding_t padding)
 {
-    assert(destination.rows == m.rows + padding[TOP] + padding[BOTTOM]);
-    assert(destination.cols == m.cols + padding[LEFT] + padding[RIGHT]);
+    assert(dest.rows == m.rows + padding[TOP] + padding[BOTTOM]);
+    assert(dest.cols == m.cols + padding[LEFT] + padding[RIGHT]);
 
-    for (int i = 0; i < destination.rows; ++i) {
-        for (int j = 0; j < destination.cols; ++j) {
-            mat_at(destination, i, j) = 0;
+    for (int i = 0; i < dest.rows; ++i) {
+        for (int j = 0; j < dest.cols; ++j) {
+            mat_at(dest, i, j) = 0;
             if (i >= padding[TOP] && i < (m.rows + padding[TOP]) &&
                 j >= padding[LEFT] && j < (m.cols + padding[LEFT])) {
-                mat_at(destination, i, j) = mat_at(m, i - padding[TOP], j - padding[LEFT]);
+                mat_at(dest, i, j) = mat_at(m, i - padding[TOP], j - padding[LEFT]);
             }
         }
     }
 }
 
-void mat_convolve(mat destination, mat m, mat filter)
+void mat_convolve(mat dest, mat m, mat filter)
 {
-    assert(destination.rows == m.rows - filter.rows + 1);
-    assert(destination.cols == m.cols - filter.cols + 1);
+    assert(dest.rows == m.rows - filter.rows + 1);
+    assert(dest.cols == m.cols - filter.cols + 1);
 
-    mat_fill(destination, 0);
+    mat_fill(dest, 0);
 
-    for (int i = 0; i < destination.rows; ++i) {
-        for (int j = 0; j < destination.cols; ++j) {
+    for (int i = 0; i < dest.rows; ++i) {
+        for (int j = 0; j < dest.cols; ++j) {
             for (int k = 0; k < filter.rows; ++k) {
                 for (int l = 0; l < filter.cols; ++l) {
-                    mat_at(destination, i, j) += mat_at(m, i + k, j + l) * mat_at(filter, k, l);
+                    mat_at(dest, i, j) += mat_at(m, i + k, j + l) * mat_at(filter, k, l);
                 }
             }
         }

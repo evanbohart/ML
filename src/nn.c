@@ -116,20 +116,11 @@ void nn_destroy(nn n)
     free(n.layers);
 }
 
-void nn_he(nn n)
+void nn_init(nn n)
 {
     for (int i = 0; i < n.num_layers; ++i) {
-        if (n.layers[i].type == DENSE || n.layers[i].type == CONV || n.layers[i].type == RECURRENT) {
-            n.layers[i].he(n.layers[i]);
-        }
-    }
-}
-
-void nn_glorot(nn n)
-{
-    for (int i = 0; i < n.num_layers; ++i) {
-        if (n.layers[i].type == DENSE || n.layers[i].type == CONV || n.layers[i].type == RECURRENT) {
-            n.layers[i].glorot(n.layers[i]);
+        if (n.layers[i].init) {
+            n.layers[i].init(n.layers[i]);
         }
     }
 }
@@ -137,7 +128,7 @@ void nn_glorot(nn n)
 void nn_print(nn n)
 {
     for (int i = 0; i < n.num_layers; ++i) {
-        if (n.layers[i].type == DENSE || n.layers[i].type == CONV) {
+        if (n.layers[i].print) {
             n.layers[i].print(n.layers[i]);
         }
     }
@@ -146,7 +137,7 @@ void nn_print(nn n)
 void nn_save(nn n, FILE *f)
 {
     for (int i = 0; i < n.num_layers; ++i) {
-        if (n.layers[i].type == DENSE || n.layers[i].type == CONV) {
+        if (n.layers[i].save) {
             n.layers[i].save(n.layers[i], f);
         }
     }
@@ -155,7 +146,7 @@ void nn_save(nn n, FILE *f)
 void nn_load(nn n, FILE *f)
 {
     for (int i = 0; i < n.num_layers; ++i) {
-        if (n.layers[i].type == DENSE || n.layers[i].type == CONV) {
+        if (n.layers[i].load) {
             n.layers[i].load(n.layers[i], f);
         }
     }

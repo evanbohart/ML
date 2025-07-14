@@ -9,7 +9,10 @@ NN_SRCS = src/mat.c src/tens3D.c src/tens4D.c src/nn.c src/dense_layer.c src/con
 		  src/maxpool_layer.c src/concat_layer.c src/flatten_layer.c src/utils.c
 NN_OBJS = $(NN_SRCS:src/%.c=obj/%.o)
 
-all: test
+IMG_SRCS = src/img.c
+IMG_OBJS = $(IMG_SRCS:src/%.c=obj/%.o)
+
+all: test img
 
 obj:
 	mkdir obj
@@ -22,6 +25,9 @@ obj/%.o: src/%.cpp | obj
 
 test: $(NN_OBJS) obj/test.o
 	$(CC) $(CFLAGS) $(NN_OBJS) obj/test.o -o test -lm
+
+img: $(IMG_OBJS) $(NN_OBJS)
+	$(CC) $(CFLAGS) $(IMG_OBJS) $(NN_OBJS) -o img -lm
 
 clean:
 	rm -rf obj test

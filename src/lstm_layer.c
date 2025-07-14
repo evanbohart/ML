@@ -145,15 +145,10 @@ void lstm_forward(layer l, void *x, void **y)
         mat_add(ll->o_z_cache.mats[i], w_x_o_dot_x, w_h_o_dot_h_prev);
         mat_add(ll->cc_z_cache.mats[i], w_x_cc_dot_x, w_h_cc_dot_h_prev);
 
-        #pragma omp parallel for collapse(2) schedule(static)
-        for (int j = 0; j < ll->h_size; ++j) {
-            for (int k = 0; k < ll->batch_size; ++k) {
-                mat_at(ll->i_z_cache.mats[i], j, k) += mat_at(ll->b_i, j, 0);
-                mat_at(ll->f_z_cache.mats[i], j, k) += mat_at(ll->b_f, j, 0);
-                mat_at(ll->o_z_cache.mats[i], j, k) += mat_at(ll->b_o, j, 0);
-                mat_at(ll->cc_z_cache.mats[i], j, k) += mat_at(ll->b_cc, j, 0);
-            }
-        }
+        mat_add(ll->i_z_cache.mats[i], ll->i_z_cache.mats[i], b_i_broadcasted);
+        mat_add(ll->f_z_cache.mats[i], ll->f_z_cache.mats[i], b_f_broadcasted);
+        mat_add(ll->o_z_cache.mats[i], ll->o_z_cache.mats[i], b_o_broadcasted);
+        mat_add(ll->cc_z_cache.mats[i], ll->cc_z_cache.mats[i], b_cc_broadcasted);
 
         mat_func(ll->i_a_cache.mats[i], ll->i_z_cache.mats[i], sig);
         mat_func(ll->f_a_cache.mats[i], ll->f_z_cache.mats[i], sig);
@@ -174,7 +169,7 @@ void lstm_forward(layer l, void *x, void **y)
         mat_had(ll->h_cache.mats[i], ll->h_cache.mats[i], ll->o_a_cache.mats[i]);
 
         mat_dot(ll->y_z_cache.mats[i], ll->w_y, ll->h_cache.mats[i]);
-        mat_add(ll->y_z_cache.mats[i], tens3D_y->mats[i], ll->b_y);
+        mat_add(ll->y_z_cache.mats[i], ll->y_z_cache.mats[i], b_y_broadcasted);
 
         switch (ll->activation) {
             case LIN:

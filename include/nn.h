@@ -18,6 +18,9 @@ float relu(float x);
 float drelu(float x);
 float clip(float x);
 
+float dmse(float y, float t);
+float dcxe(float y, float t);
+
 typedef int padding_t[4];
 
 enum { TOP, BOTTOM, LEFT, RIGHT };
@@ -62,7 +65,6 @@ void mat_trans(mat dest, mat m);
 void mat_180(mat dest, mat m);
 void mat_scale(mat dest, mat m, float a);
 void mat_func(mat dest, mat m, func f);
-void mat_softmax(mat dest, mat m);
 void mat_pad(mat dest, mat m, padding_t padding);
 void mat_convolve(mat dest, mat m, mat filter);
 void mat_print(mat m);
@@ -105,7 +107,7 @@ void tens4D_save(tens4D t, FILE *f);
 void tens4D_load(tens4D t, FILE *f);
 
 typedef enum layer_type { DENSE, CONV, MAXPOOL, FLATTEN, DENSE_DROPOUT, CONV_DROPOUT,
-                          RECURRENT, CONCAT, LSTM } layer_type;
+                          RECURRENT, CONCAT, LSTM, SOFTMAX } layer_type;
 
 typedef struct layer {
     layer_type type;
@@ -320,6 +322,17 @@ layer concat_layer_alloc(int x_size, int batch_size, int steps);
 void concat_forward(layer l, void *x, void **y);
 void concat_backprop(layer l, void *dy, void **dx, float rate);
 void concat_destroy(layer l);
+
+typedef struct softmax_layer {
+    int x_size;
+    int batch_size;
+    mat y_cache;
+} softmax_layer;
+
+layer softmax_layer_alloc(int x_size, int batch_size);
+void softmax_forward(layer l, void *x, void **y);
+void softmax_backprop(layer l, void *dy, void **dx, float rate);
+void softmax_destroy(layer l);
 
 typedef struct {
     int num_layers;

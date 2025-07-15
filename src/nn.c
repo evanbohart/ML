@@ -17,6 +17,14 @@ float relu(float x) { return x * (x > 0); }
 
 float drelu(float x) { return x > 0; }
 
+float dmse(float y, float t) { return y - t; }
+
+float dcxe(float y, float t) {
+    float eps = 1e-12;
+
+    return -t / y + eps;
+}
+
 float clip(float x) {
     if (x > 1) return 1;
     if (x < -1) return -1;
@@ -51,11 +59,15 @@ void nn_forward(nn n, void *inputs, void **outputs)
         n.layers[i].forward(n.layers[i], current_inputs, &current_outputs);
 
         if (i > 0) {
-            if (n.layers[i].type == DENSE || n.layers[i].type == DENSE_DROPOUT) {
+            if (n.layers[i].type == DENSE ||
+                n.layers[i].type == DENSE_DROPOUT ||
+                n.layers[i].type == SOFTMAX) {
                 mat *mat_inputs = (mat *)current_inputs;
                 free(mat_inputs->vals);
             }
-	        else if (n.layers[i].type == RECURRENT || n.layers[i].type == CONCAT) {
+	        else if (n.layers[i].type == RECURRENT ||
+                     n.layers[i].type == LSTM ||
+                     n.layers[i].type == CONCAT) {
 		        tens3D *tens3D_inputs = (tens3D *)current_inputs;
     		    tens3D_destroy(*tens3D_inputs);
 	        }
@@ -84,12 +96,16 @@ void nn_backprop(nn n, void *grad_in, void **grad_out, float rate)
         n.layers[i].backprop(n.layers[i], current_grad_in, &current_grad_out, rate);
 
         if (i < n.num_layers - 1) {
-            if (n.layers[i].type == DENSE || n.layers[i].type == FLATTEN ||
-                n.layers[i].type == DENSE_DROPOUT || n.layers[i].type == CONCAT) {
+            if (n.layers[i].type == DENSE ||
+                n.layers[i].type == DENSE_DROPOUT||
+                n.layers[i].type == FLATTEN ||
+                n.layers[i].type == CONCAT ||
+                n.layers[i].type == SOFTMAX) {
                 mat *mat_grad_in = (mat *)current_grad_in;
                 free(mat_grad_in->vals);
             }
-	        else if (n.layers[i].type == RECURRENT) {
+	        else if (n.layers[i].type == RECURRENT ||
+                     n.layers[i].type == LSTM) {
     		    tens3D *tens3D_grad_in = (tens3D *)current_grad_in;
 	    	    tens3D_destroy(*tens3D_grad_in);
 	        }

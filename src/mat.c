@@ -160,30 +160,6 @@ void mat_func(mat dest, mat m, func f)
 	}
 }
 
-void mat_softmax(mat dest, mat m)
-{
-    assert(dest.rows == m.rows);
-    assert(dest.cols == m.cols);
-
-    for (int i = 0; i < m.cols; ++i) {
-        float max = -FLT_MAX;
-        for (int j = 0; j < m.rows; ++j) {
-            if (mat_at(m, j, i) > max) max = mat_at(m, j, i);
-        }
-
-        float sum = 0.0f;
-        for (int j = 0; j < dest.rows; ++j) {
-            float val = exp(mat_at(m, j, i) - max);
-            mat_at(dest, j, i) = val;
-            sum += val;
-        }
-
-        for (int j = 0; j < dest.rows; ++j) {
-            mat_at(dest, j, i) /= sum;
-        }
-    }
-}
-
 void mat_pad(mat dest, mat m, padding_t padding)
 {
     assert(dest.rows == m.rows + padding[TOP] + padding[BOTTOM]);

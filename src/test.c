@@ -96,7 +96,10 @@ int main(void)
             nn_forward(n, &x, &y);
 
             mat *predicted = (mat *)y;
-            mat_sub(dy, *predicted, targets);
+
+            for (int i = 0; i < BATCH_SIZE; ++i) {
+                mat_at(dy, 0, i) = dmse(mat_at(*predicted, 0, i), mat_at(targets, 0, i));
+            }
 
             nn_backprop(n, &dy, &dx, 1e-3);
 

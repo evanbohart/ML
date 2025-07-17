@@ -11,12 +11,12 @@ df["sales"] = df["sales"].astype(str).str.replace(",", "");
 df["sales"] = pd.to_numeric(df["sales"], errors="coerce");
 
 daily_sales = df.groupby("order_date")["sales"].sum();
-first_half = daily_sales.iloc[:(len(daily_sales) // 2)];
-smooth = first_half.rolling(7, min_periods=1).mean();
+second_half = daily_sales.iloc[(len(daily_sales) // 2):];
+smooth = second_half.rolling(7, min_periods=1).mean();
 
 full_range = pd.date_range(start=smooth.index.min(), end=smooth.index.max());
 daily_df = pd.DataFrame(index=full_range);
-daily_df["sales"] = first_half.reindex(full_range, fill_value=0.0);
+daily_df["sales"] = second_half.reindex(full_range, fill_value=0.0);
 daily_df["avg_sales"] = smooth.reindex(full_range, fill_value=0.0);
 
 promotion_flags = df.groupby("order_date")["discount"].apply(lambda x: (x > 0).any()).astype(int);

@@ -18,6 +18,8 @@ float relu(float x);
 float drelu(float x);
 float clip(float x);
 
+float mse(float y, float t);
+float cxe(float y, float t);
 float dmse(float y, float t);
 float dcxe(float y, float t);
 

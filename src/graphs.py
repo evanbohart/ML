@@ -11,8 +11,8 @@ df["sales"] = df["sales"].astype(str).str.replace(",", "");
 df["sales"] = pd.to_numeric(df["sales"], errors="coerce");
 
 daily_sales = df.groupby("order_date")["sales"].sum();
-first_half = daily_sales.iloc[:(len(daily_sales) // 2)];
-smooth = first_half.rolling(7).mean();
+second_half = daily_sales.iloc[(len(daily_sales) // 2):];
+smooth = second_half.rolling(7).mean();
 
 plt.figure(figsize=(14, 6));
 plt.plot(smooth.index, smooth.values, label="Daily Sailes", color="blue");

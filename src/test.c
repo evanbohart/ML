@@ -7,8 +7,8 @@
 #include "utils.h"
 
 #define DAYS 737
-
-#define BATCH_SIZE 32
+#define STEPS 60
+#define BATCH_SIZE 1
 #define EPOCHS 1
 
 void read_inputs(mat x_all, FILE *f)
@@ -75,30 +75,27 @@ int main(void)
         mat_at(x_all, 1, i) = (mat_at(x_all, 1, i) - min_avg) / (max_avg - min_avg);
     }
 
-    mat_print(x_all);
-
-        return 0;
-
     nn n = nn_alloc(5);
 
-    nn_add_layer(&n, lstm_layer_alloc(24, 64, 1, BATCH_SIZE, 60, LIN));
-    nn_add_layer(&n, concat_layer_alloc(1, BATCH_SIZE, 60));
-    nn_add_layer(&n, dense_layer_alloc(60, 1, BATCH_SIZE, RELU));
+    nn_add_layer(&n, lstm_layer_alloc(24, 64, 1, BATCH_SIZE, STEPS, LIN));
+    nn_add_layer(&n, concat_layer_alloc(1, BATCH_SIZE, STEPS));
+    nn_add_layer(&n, dense_layer_alloc(STEPS, 1, BATCH_SIZE, RELU));
 
-    tens3D x = tens3D_alloc(24, BATCH_SIZE, 60);
+    tens3D x = tens3D_alloc(24, BATCH_SIZE, STEPS);
     mat targets = mat_alloc(1, BATCH_SIZE);
     mat dy = mat_alloc(1, BATCH_SIZE);
 
     void *y;
-    void *dx;
+
+    float loss = 0.0f;
 
     for (int i = 0; i < EPOCHS; ++i) {
-        for (int j = 0; j < DAYS - BATCH_SIZE - 60; ++j) {
+        for (int j = 0; j < DAYS - BATCH_SIZE - STEPS - 1; ++j) {
             for (int k = 0; k < BATCH_SIZE; ++k) {
-                mat_at(targets, 0, k) = mat_at(x_all, 0, j + k + 60);
+                mat_at(targets, 0, k) = mat_at(x_all, 0, j + k + STEPS);
 
                 for (int l = 0; l < 24; ++l) {
-                    for (int m = 0; m < 60; ++m) {
+                    for (int m = 0; m < STEPS; ++m) {
                         tens3D_at(x, l, k, j) = mat_at(x_all, l, j + m + k);
                     }
                 }
@@ -109,15 +106,16 @@ int main(void)
             mat *predicted = (mat *)y;
 
             for (int i = 0; i < BATCH_SIZE; ++i) {
-                mat_at(dy, 0, i) = dmse(mat_at(*predicted, 0, i), mat_at(targets, 0, i));
+                 loss += mse(mat_at(*predicted, 0, i), mat_at(targets, 0, i));
             }
 
-            nn_backprop(n, &dy, &dx, 1e-3);
-
             free(predicted->vals);
-            free(((mat *)dx)->vals);
         }
     }
+
+    loss /= BATCH_SIZE * (DAYS - BATCH_SIZE - STEPS - 1);
+
+    printf("%f", loss);
 
     free(x_all.vals);
     tens3D_destroy(x);

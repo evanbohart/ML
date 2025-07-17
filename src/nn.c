@@ -17,6 +17,10 @@ float relu(float x) { return x * (x > 0); }
 
 float drelu(float x) { return x > 0; }
 
+float mse(float y, float t) { return pow(y - t, 2) / 2; }
+
+float cxe(float y, float t) { return -t * log(y); }
+
 float dmse(float y, float t) { return y - t; }
 
 float dcxe(float y, float t) {

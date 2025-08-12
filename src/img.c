@@ -37,20 +37,8 @@ int showcase(char *path)
     nn net = nn_alloc(20);
     padding_t same = { 1, 1, 1, 1 };
 
-    nn_add_layer(&net, conv_layer_alloc(32, 32, 3, BATCH_SIZE, 3, 32, 1, same, RELU));
-    nn_add_layer(&net, conv_layer_alloc(32, 32, 32, BATCH_SIZE, 3, 32, 1, same, RELU));
-    nn_add_layer(&net, maxpool_layer_alloc(32, 32, 32, BATCH_SIZE, 2));
-    nn_add_layer(&net, conv_layer_alloc(16, 16, 32, BATCH_SIZE, 3, 64, 1, same, RELU));
-    nn_add_layer(&net, conv_layer_alloc(16, 16, 64, BATCH_SIZE, 3, 64, 1, same, RELU));
-    nn_add_layer(&net, maxpool_layer_alloc(16, 16, 64, BATCH_SIZE, 2));
-    nn_add_layer(&net, conv_layer_alloc(8, 8, 64, BATCH_SIZE, 3, 128, 1, same, RELU));
-    nn_add_layer(&net, conv_layer_alloc(8, 8, 128, BATCH_SIZE, 3, 128, 1, same, RELU));
-    nn_add_layer(&net, maxpool_layer_alloc(8, 8, 128, BATCH_SIZE, 2));
-    nn_add_layer(&net, flatten_layer_alloc(4, 4, 128, BATCH_SIZE));
-    nn_add_layer(&net, dense_layer_alloc(2048, 128, BATCH_SIZE, RELU));
-    nn_add_layer(&net, dense_layer_alloc(128, 10, BATCH_SIZE, LIN));
-    nn_add_layer(&net, softmax_layer_alloc(10, BATCH_SIZE));
-
+    nn_add(&n, res_block_alloc(2, 32, 32, 3, BATCH_SIZE, 32, 3, 1, same));
+    nn_add(&n, maxpool_layer_alloc(32, 32, 32, BATCH_SIZE, 2));
     nn_load(net, net_file);
     fclose(net_file);
 

@@ -194,6 +194,98 @@ void mat_convolve(mat dest, mat m, mat filter)
     }
 }
 
+void mat_softmax(mat dest, mat m)
+{
+    assert(dest.rows == m.rows);
+    assert(dest.cols == m.cols);
+
+    for (int i = 0; i < m.cols; ++i) {
+        float max = -FLT_MAX;
+
+        for (int j = 0; j < m.rows; ++j) {
+            if (mat_at(m, j, i) > max) max = mat_at(m, j, i);
+        }
+
+        float sum = 0.0f;
+
+        for (int j = 0; j < m.rows; ++j) {
+            float val = expf(mat_at(m, j, i) - max);
+
+            mat_at(dest, j, i) = val;
+
+            sum += val;
+        }
+
+        for (int j = 0; j < m.rows; ++j) {
+            mat_at(dest, j, i) /= sum;
+        }
+    }
+}
+
+void mat_batchnorm(mat dest, mat m)
+{
+    assert(dest.rows == m.rows);
+    assert(dest.cols == m.cols);
+
+    for (int i = 0; i < dest.rows; ++i) {
+        float mean = 0.0f;
+
+        for (int j = 0; j < dest.cols; ++j) {
+            mean += mat_at(m, i, j);
+        }
+
+        mean /= dest.cols;
+
+        float var = 0.0f;
+
+        for (int j = 0; j < dest.cols; ++j) {
+            float diff = mat_at(m, i, j) - mean;
+            var += diff * diff;
+        }
+
+        var /= dest.cols;
+
+        float eps = 1e-5;
+        float stddev = sqrtf(var + eps);
+
+        for (int j = 0; j < dest.cols; ++j) {
+            mat_at(dest, i, j) = (mat_at(m, i, j) - mean) / stddev;
+        }
+    }
+}
+
+void mat_layernorm(mat dest, mat m)
+{
+    assert(dest.rows == m.rows);
+    assert(dest.cols == m.cols);
+
+    for (int i = 0; i < dest.cols; ++i) {
+        float mean = 0.0f;
+
+        for (int j = 0; j < dest.rows; ++j) {
+            mean += mat_at(m, i, j);
+        }
+
+        mean /= dest.rows;
+
+        float var = 0.0f;
+
+        for (int j = 0; j < dest.rows; ++j) {
+            float diff = mat_at(m, i, j) - mean;
+            var += diff * diff;
+        }
+
+        var /= dest.rows;
+
+        float eps = 1e-5;
+        float stddev = sqrtf(var + eps);
+
+        for (int j = 0; j < dest.rows; ++j) {
+            mat_at(dest, i, j) = (mat_at(m, i, j) - mean) / stddev;
+        }
+    }
+}
+
 void mat_print(mat m)
 {
     assert(m.vals != NULL);

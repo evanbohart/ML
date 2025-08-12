@@ -55,7 +55,7 @@ for h in holidays:
 daily_df["is_holiday"] = daily_df.index.isin(holiday_flags).astype(int)
 
 count = 0;
-with open("docs/sales.bin", "wb") as f:
+with open("docs/second_half_sales.bin", "wb") as f:
     for day, (date, row) in enumerate(daily_df.iterrows(), start=1):
         data = struct.pack(
             "iffiiiii",

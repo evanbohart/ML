@@ -134,14 +134,19 @@ void tens3D_func(tens3D dest, tens3D t, func f)
 
 void tens3D_pad(tens3D dest, tens3D t, padding_t padding)
 {
-    assert(dest.rows > t.rows);
-    assert(dest.cols > t.cols);
     assert(dest.depth == t.depth);
 
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < dest.depth; ++i) {
         mat_pad(dest.mats[i], t.mats[i], padding);
     }
+}
+
+void tens3D_batchnorm(tens3D dest, tens3D t)
+{
+    assert(dest.rows == t.rows);
+    assert(dest.cols == t.cols);
+    assert(dest.depth == t.depth);
 }
 
 void tens3D_print(tens3D t)

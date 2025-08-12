@@ -6,8 +6,8 @@
 #include "nn.h"
 
 layer conv_layer_alloc(int x_rows, int x_cols, int x_depth,
-                       int batch_size, int filter_size, int y_depth,
-                       int stride, padding_t padding, actfunc activation)
+                       int batch_size, int filter_size,
+                       int convolutions, int stride, padding_t padding)
 {
     conv_layer *cl = malloc(sizeof(conv_layer));
 
@@ -20,11 +20,10 @@ layer conv_layer_alloc(int x_rows, int x_cols, int x_depth,
     cl->batch_size = batch_size;
     cl->y_rows = y_rows;
     cl->y_cols = y_cols;
-    cl->y_depth = y_depth;
+    cl->y_depth = convolutions;
     cl->filter_size = filter_size;
     cl->stride = stride;
     memcpy(cl->padding, padding, sizeof(cl->padding));
-    cl->activation = activation;
 
     cl->filters = tens4D_alloc(filter_size, filter_size, x_depth, y_depth);
     cl->b = tens3D_alloc(y_rows, y_cols, y_depth);
@@ -46,26 +45,28 @@ layer conv_layer_alloc(int x_rows, int x_cols, int x_depth,
     return l;
 }
 
-void conv_forward(layer l, void *input, void **output)
+void conv_forward(layer l, tens x, tens *y)
 {
     conv_layer *cl = (conv_layer *)l.data;
-    tens4D *tens4D_input = (tens4D *)input;
 
-    assert(tens4D_input->rows == cl->x_rows);
-    assert(tens4D_input->cols == cl->x_cols);
-    assert(tens4D_input->depth == cl->x_depth);
-    assert(tens4D_input->batches == cl->batch_size);
+    assert(x.type == TENS4D);
+    assert(x.t4.rows == cl->x_rows);
+    assert(x.t4.cols == cl->x_cols);
+    assert(x.t4.depth == cl->x_depth);
+    assert(x.t4.batches == cl->batch_size);
 
-    tens4D *tens4D_output = malloc(sizeof(tens4D));
+    y->type = TENS4D;
+    y->t4 = tens4D_alloc(cl->y_rows, cl->y_cols,
+                         cl->y_depth, cl->batch_size);
 
-    tens4D_copy(cl->x_cache, *tens4D_input);
+    tens4D_copy(cl->x_cache, x.t4);
 
     tens4D x_padded = tens4D_alloc(cl->x_rows + cl->padding[TOP] + cl->padding[BOTTOM],
-                                        cl->x_cols + cl->padding[LEFT] + cl->padding[RIGHT],
-                                        cl->x_depth, cl->batch_size);
-    tens4D_pad(x_padded, *tens4D_input, cl->padding);
+                                   cl->x_cols + cl->padding[LEFT] + cl->padding[RIGHT],
+                                   cl->x_depth, cl->batch_size);
+    tens4D_pad(x_padded, x.t4, cl->padding);
 
-    tens4D_fill(cl->z_cache, 0);
+    tens4D_fill(y->t4, 0);
 
     #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < cl->batch_size; ++i) {
@@ -75,8 +76,8 @@ void conv_forward(layer l, void *input, void **output)
             for (int k = 0; k < cl->x_depth; ++k) {
                 mat_convolve(convolved, x_padded.tens3Ds[i].mats[k],
                              cl->filters.tens3Ds[j].mats[k]);
-                mat_add(cl->z_cache.tens3Ds[i].mats[j],
-                        cl->z_cache.tens3Ds[i].mats[j], convolved);
+                mat_add(y->t4.tens3Ds[i].mats[j],
+                        t->t4.tens3Ds[i].mats[j], convolved);
             }
 
             free(convolved.vals);
@@ -88,86 +89,46 @@ void conv_forward(layer l, void *input, void **output)
         for (int j = 0; j < cl->y_depth; ++j) {
             for (int k = 0; k < cl->y_rows; ++k) {
                 for (int l = 0; l < cl->y_cols; ++l) {
-                    tens4D_at(cl->z_cache, k, l, j, i) += tens3D_at(cl->b, k, l, j);
+                    tens4D_at(y->t4, k, l, j, i) += tens3D_at(cl->b, k, l, j);
                 }
             }
         }
     }
 
-    *tens4D_output = tens4D_alloc(cl->y_rows, cl->y_cols,
-                                    cl->y_depth, cl->batch_size);
-
-    switch (cl->activation) {
-        case LIN:
-            tens4D_func(*tens4D_output, cl->z_cache, lin);
-            break;
-        case SIG:
-            tens4D_func(*tens4D_output, cl->z_cache, sig);
-            break;
-        case TANH:
-            tens4D_func(*tens4D_output, cl->z_cache, tanhf);
-            break;
-        case RELU:
-            tens4D_func(*tens4D_output, cl->z_cache, relu);
-            break;
-    }
-
-    *output = tens4D_output;
-
     tens4D_destroy(x_padded);
 }
 
-void conv_backprop(layer l, void *delta_in, void **delta_out, float rate)
+void conv_backprop(layer l, tens dy, tens *dx, float rate)
 {
     conv_layer *cl = (conv_layer *)l.data;
-    tens4D *tens4D_delta_in = (tens4D *)delta_in;
 
-    assert(tens4D_delta_in->rows == cl->y_rows);
-    assert(tens4D_delta_in->cols == cl->y_cols);
-    assert(tens4D_delta_in->depth == cl->y_depth);
-    assert(tens4D_delta_in->batches == cl->batch_size);
+    assert(dy.type == TENS4D);
+    assert(dy.t4.rows == cl->y_rows);
+    assert(dy.t4.cols == cl->y_cols);
+    assert(dy.t4.depth == cl->y_depth);
+    assert(dy.t4.batches == cl->batch_size);
 
-    tens4D *tens4D_delta_out = malloc(sizeof(tens4D));
-    tens4D dz = tens4D_alloc(cl->y_rows, cl->y_cols,
-                                     cl->y_depth, cl->batch_size);
+    dx->type = TENS4D;
+    dx->t4 = tens4D_alloc(cl->x_rows, cl->x_cols,
+                          cl->x_depth, cl->batch_size);
 
-    switch (cl->activation) {
-        case LIN:
-            tens4D_func(dz, cl->z_cache, dlin);
-            break;
-        case SIG:
-            tens4D_func(dz, cl->z_cache, dsig);
-            break;
-        case TANH:
-            tens4D_func(dz, cl->z_cache, dtanh);
-            break;
-        case RELU:
-            tens4D_func(dz, cl->z_cache, drelu);
-            break;
-    }
 
-    tens4D delta = tens4D_alloc(cl->y_rows, cl->y_cols,
-                               cl->y_depth, cl->batch_size);
-    tens4D_had(delta, *tens4D_delta_in, dz);
+    padding_t dy_padding = { cl->filter_size - 1 - cl->padding[TOP],
+                             cl->filter_size - 1 - cl->padding[BOTTOM],
+                             cl->filter_size - 1 - cl->padding[LEFT],
+                             cl->filter_size - 1 - cl->padding[RIGHT] };
 
-    padding_t delta_padding = { cl->filter_size - 1 - cl->padding[TOP],
-                               cl->filter_size - 1 - cl->padding[BOTTOM],
-                               cl->filter_size - 1 - cl->padding[LEFT],
-                               cl->filter_size - 1 - cl->padding[RIGHT] };
-
-    tens4D delta_padded = tens4D_alloc(cl->y_rows + delta_padding[TOP] + delta_padding[BOTTOM],
-                                      cl->y_cols + delta_padding[LEFT] + delta_padding[RIGHT],
-                                      cl->y_depth, cl->batch_size);
-    tens4D_pad(delta_padded, delta, delta_padding);
+    tens4D dy_padded = tens4D_alloc(cl->y_rows + dy_padding[TOP] + dy_padding[BOTTOM],
+                                    cl->y_cols + dy_padding[LEFT] + dy_padding[RIGHT],
+                                    cl->y_depth, cl->batch_size);
+    tens4D_pad(delta_padded, dy.t4, delta_padding);
 
     tens4D filter_180 = tens4D_alloc(cl->filter_size, cl->filter_size,
                                      cl->x_depth, cl->y_depth);
 
     tens4D_180(filter_180, cl->filters);
 
-    *tens4D_delta_out = tens4D_alloc(cl->x_rows, cl->x_cols,
-                                    cl->x_depth, cl->batch_size);
-    tens4D_fill(*tens4D_delta_out, 0);
+    tens4D_fill(dx->t4, 0);
 
     #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < cl->batch_size; ++i) {
@@ -177,19 +138,17 @@ void conv_backprop(layer l, void *delta_in, void **delta_out, float rate)
             for (int k = 0; k < cl->y_depth; ++k) {
                 mat_convolve(convolved, delta_padded.tens3Ds[i].mats[k],
                              filter_180.tens3Ds[k].mats[j]);
-                mat_add(tens4D_delta_out->tens3Ds[i].mats[j],
-                        tens4D_delta_out->tens3Ds[i].mats[j], convolved);
+                mat_add(dx->t4.tens3Ds[i].mats[j],
+                        dx->t4.tens3Ds[i].mats[j], convolved);
             }
 
             free(convolved.vals);
         }
     }
 
-    *delta_out = tens4D_delta_out;
-
     tens4D x_padded = tens4D_alloc(cl->x_rows + cl->padding[TOP] + cl->padding[BOTTOM],
-                                        cl->x_cols + cl->padding[LEFT] + cl->padding[RIGHT],
-                                        cl->x_depth, cl->batch_size);
+                                   cl->x_cols + cl->padding[LEFT] + cl->padding[RIGHT],
+                                   cl->x_depth, cl->batch_size);
     tens4D_pad(x_padded, cl->x_cache, cl->padding);
 
     tens4D dw = tens4D_alloc(cl->filter_size, cl->filter_size,
@@ -219,7 +178,7 @@ void conv_backprop(layer l, void *delta_in, void **delta_out, float rate)
     tens3D db = tens3D_alloc(cl->y_rows, cl->y_cols, cl->y_depth);
     tens3D_fill(db, 0);
 
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < cl->y_depth; ++i) {
         for (int j = 0; j < cl->y_rows; ++j) {
             for (int k = 0; k < cl->y_cols; ++k) {
@@ -239,8 +198,6 @@ void conv_backprop(layer l, void *delta_in, void **delta_out, float rate)
     tens3D_scale(db, db, rate);
     tens3D_sub(cl->b, cl->b, db);
 
-    tens4D_destroy(dz);
-    tens4D_destroy(delta);
     tens4D_destroy(delta_padded);
     tens4D_destroy(filter_180);
     tens4D_destroy(x_padded);
@@ -255,21 +212,22 @@ void conv_destroy(layer l)
     tens4D_destroy(cl->filters);
     tens3D_destroy(cl->b);
     tens4D_destroy(cl->x_cache);
-    tens4D_destroy(cl->z_cache);
 
     free(cl);
 }
 
-void conv_init(layer l)
+void conv_init(layer l, init_type type)
 {
     conv_layer *cl = (conv_layer *)l.data;
 
-    if (cl->activation == SIG || cl->activation == TANH) {
-        tens4D_normal(cl->filters, 0, sqrt(2.0 / (cl->x_depth * cl->filter_size * cl->filter_size +
-                                                  cl->y_depth * cl->filter_size * cl->filter_size)));
-    }
-    else {
-        tens4D_normal(cl->filters, 0, sqrt(2.0 / (cl->x_depth * cl->filter_size * cl->filter_size)));
+    switch (type) {
+        case GLOROT:
+            tens4D_normal(cl->filters, 0, sqrt(2.0 / (cl->x_depth * cl->filter_size * cl->filter_size +
+                                                      cl->y_depth * cl->filter_size * cl->filter_size)));
+            break;
+        case HE:
+            tens4D_normal(cl->filters, 0, sqrt(2.0 / (cl->x_depth * cl->filter_size * cl->filter_size)));
+            break;
     }
 
     tens3D_fill(cl->b, 0);

@@ -93,6 +93,16 @@ void tens4D_180(tens4D dest, tens4D t)
     }
 }
 
+void tens4D_diag(tens4D dest, tens4D t)
+{
+    assert(dest.batches == t.batches);
+
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_diag(dest.tens3Ds[i], t.tens3Ds[i]);
+    }
+}
+
 void tens4D_scale(tens4D dest, tens4D t, float a)
 {
     assert(dest.batches == t.batches);

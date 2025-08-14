@@ -6,12 +6,14 @@
 
 tens3D tens3D_alloc(int rows, int cols, int depth)
 {
-	tens3D t;	
+	tens3D t;
+
 	t.rows = rows;
 	t.cols = cols;
 	t.depth = depth;
 
 	t.mats = malloc(depth * sizeof(mat));
+    
 	for (int i = 0; i < depth; ++i) {
 		t.mats[i] = mat_alloc(rows, cols);
 	}

@@ -1,20 +1,20 @@
 #include <stdlib.h>
+#include <assert.h>
 #include "nn.h"
 
 layer gelu_layer_2D_alloc(int x_size, int batch_size)
 {
     gelu_layer *gl = malloc(sizeof(gelu_layer));
 
-    gl->type = MAT;
+    gl->x_type = MAT;
     gl->x_rows = x_size;
     gl->batch_size = batch_size;
 
     gl->x_cache.type = MAT;
-    gl->x_cache.m = mat_alloc(x_size, batch_size)
+    gl->x_cache.m = mat_alloc(x_size, batch_size);
 
     layer l;
 
-    l.type = GELU;
     l.data = gl;
 
     l.forward = gelu_2D_forward;
@@ -33,7 +33,7 @@ layer gelu_layer_3D_alloc(int x_rows, int x_cols, int batch_size)
 {
     gelu_layer *gl = malloc(sizeof(gelu_layer));
 
-    gl->type = TENS3D;
+    gl->x_type = TENS3D;
     gl->x_rows = x_rows;
     gl->x_cols = x_cols;
     gl->batch_size = batch_size;
@@ -43,7 +43,6 @@ layer gelu_layer_3D_alloc(int x_rows, int x_cols, int batch_size)
 
     layer l;
 
-    l.type = GELU;
     l.data = gl;
 
     l.forward = gelu_3D_forward;
@@ -63,19 +62,18 @@ layer gelu_layer_4D_alloc(int x_rows, int x_cols,
 {
     gelu_layer *gl = malloc(sizeof(gelu_layer));
 
-    gl->type = TENS4D;
+    gl->x_type = TENS4D;
     gl->x_rows = x_rows;
     gl->x_cols = x_cols;
     gl->x_depth = x_depth;
     gl->batch_size = batch_size;
 
     gl->x_cache.type = TENS4D;
-    gl->x_cache.t4 = tens3D_alloc(x_rows, x_cols,
+    gl->x_cache.t4 = tens4D_alloc(x_rows, x_cols,
                                   x_depth, batch_size);
 
     layer l;
 
-    l.type = GELU;
     l.data = gl;
 
     l.forward = gelu_4D_forward;
@@ -94,9 +92,9 @@ void gelu_2D_forward(layer l, tens x, tens *y)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == MAT);
+    assert(gl->x_type == MAT);
 
-    assert(x.type == gl->type);
+    assert(x.type == gl->x_type);
     assert(x.m.rows == gl->x_rows);
     assert(x.m.cols == gl->batch_size);
 
@@ -112,9 +110,9 @@ void gelu_2D_backprop(layer l, tens dy, tens *dx, float rate)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == MAT);
+    assert(gl->x_type == MAT);
 
-    assert(dy.type == gl->type);
+    assert(dy.type == gl->x_type);
     assert(dy.m.rows == gl->x_rows);
     assert(dy.m.cols == gl->batch_size);
 
@@ -133,7 +131,7 @@ void gelu_2D_destroy(layer l)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == MAT);
+    assert(gl->x_type == MAT);
 
     free(gl->x_cache.m.vals);
 
@@ -144,9 +142,9 @@ void gelu_3D_forward(layer l, tens x, tens *y)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == TENS3D);
+    assert(gl->x_type == TENS3D);
 
-    assert(x.type == gl->type);
+    assert(x.type == gl->x_type);
     assert(x.t3.rows == gl->x_rows);
     assert(x.t3.cols == gl->x_cols);
     assert(x.t3.depth == gl->batch_size);
@@ -163,9 +161,9 @@ void gelu_3D_backprop(layer l, tens dy, tens *dx, float rate)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == TENS3D);
+    assert(gl->x_type == TENS3D);
 
-    assert(dy.type == gl->type);
+    assert(dy.type == gl->x_type);
     assert(dy.t3.rows == gl->x_rows);
     assert(dy.t3.cols == gl->x_cols);
     assert(dy.t3.depth == gl->batch_size);
@@ -185,7 +183,7 @@ void gelu_3D_destroy(layer l)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == TENS3D);
+    assert(gl->x_type == TENS3D);
 
     tens3D_destroy(gl->x_cache.t3);
 
@@ -196,9 +194,9 @@ void gelu_4D_forward(layer l, tens x, tens *y)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == TENS4D);
+    assert(gl->x_type == TENS4D);
 
-    assert(x.type == gl->type);
+    assert(x.type == gl->x_type);
     assert(x.t4.rows == gl->x_rows);
     assert(x.t4.cols == gl->x_cols);
     assert(x.t4.depth == gl->x_depth);
@@ -217,9 +215,9 @@ void gelu_4D_backprop(layer l, tens dy, tens *dx, float rate)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == TENS4D);
+    assert(gl->x_type == TENS4D);
 
-    assert(dy.type == gl->type);
+    assert(dy.type == gl->x_type);
     assert(dy.t4.rows == gl->x_rows);
     assert(dy.t4.cols == gl->x_cols);
     assert(dy.t4.depth == gl->x_depth);
@@ -242,9 +240,9 @@ void gelu_4D_destroy(layer l)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(gl->type == TENS4D);
+    assert(gl->x_type == TENS4D);
 
-    tens3D_destroy(gl->x_cache.t4);
+    tens4D_destroy(gl->x_cache.t4);
 
     free(gl);
 }

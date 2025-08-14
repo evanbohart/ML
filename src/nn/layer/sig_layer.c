@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <assert.h>
 #include "nn.h"
 
 layer sig_layer_2D_alloc(int x_size, int batch_size)
@@ -10,11 +11,10 @@ layer sig_layer_2D_alloc(int x_size, int batch_size)
     sl->batch_size = batch_size;
 
     sl->x_cache.type = MAT;
-    sl->x_cache.m = mat_alloc(x_size, batch_size)
+    sl->x_cache.m = mat_alloc(x_size, batch_size);
 
     layer l;
 
-    l.type = SIG;
     l.data = sl;
 
     l.forward = sig_2D_forward;
@@ -43,7 +43,6 @@ layer sig_layer_3D_alloc(int x_rows, int x_cols, int batch_size)
 
     layer l;
 
-    l.type = SIG;
     l.data = sl;
 
     l.forward = sig_3D_forward;
@@ -70,12 +69,11 @@ layer sig_layer_4D_alloc(int x_rows, int x_cols,
     sl->batch_size = batch_size;
 
     sl->x_cache.type = TENS4D;
-    sl->x_cache.t4 = tens3D_alloc(x_rows, x_cols,
+    sl->x_cache.t4 = tens4D_alloc(x_rows, x_cols,
                                   x_depth, batch_size);
 
     layer l;
 
-    l.type = SIG;
     l.data = sl;
 
     l.forward = sig_4D_forward;
@@ -244,7 +242,7 @@ void sig_4D_destroy(layer l)
 
     assert(sl->x_type == TENS4D);
 
-    tens3D_destroy(sl->x_cache.t4);
+    tens4D_destroy(sl->x_cache.t4);
 
     free(sl);
 }

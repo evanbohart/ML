@@ -17,7 +17,6 @@ layer dropout_layer_2D_alloc(int x_rows, int batch_size, float rate)
 
     layer l;
 
-    l.type = DROPOUT;
     l.data = dl;
 
     l.forward = dropout_2D_forward;
@@ -48,7 +47,6 @@ layer dropout_layer_3D_alloc(int x_rows, int x_cols,
 
     layer l;
 
-    l.type = DROPOUT;
     l.data = dl;
 
     l.forward = dropout_3D_forward;
@@ -76,12 +74,11 @@ layer dropout_layer_4D_alloc(int x_rows, int x_cols,
     dl->rate = rate;
 
     dl->mask.type = TENS4D;
-    dl->mask.t4 = mat_alloc(x_rows, x_cols,
-                            x_depth, batch_size);
+    dl->mask.t4 = tens4D_alloc(x_rows, x_cols,
+                               x_depth, batch_size);
 
     layer l;
 
-    l.type = DROPOUT;
     l.data = dl;
 
     l.forward = dropout_4D_forward;
@@ -113,7 +110,7 @@ void dropout_2D_forward(layer l, tens x, tens *y)
     for (int i = 0; i < dl->x_rows; ++i) {
         for (int j = 0; j < dl->batch_size; ++j) {
             mat_at(dl->mask.m, i, j) =
-                rand_fload(0.0f, 1.0f) > dl->rate ? 1.0f : 0.0f;
+                rand_float(0.0f, 1.0f) > dl->rate ? 1.0f : 0.0f;
         }
     }
 
@@ -147,7 +144,7 @@ void dropout_2D_destroy(layer l)
     free(dl);
 }
 
-void drouput_3D_forward(layer l, tens x, tens *y)
+void dropout_3D_forward(layer l, tens x, tens *y)
 {
     dropout_layer *dl = (dropout_layer *)l.data;
 
@@ -197,14 +194,14 @@ void dropout_3D_destroy(layer l)
 
     assert(dl->x_type == TENS3D);
 
-    tens3D_destroy(dl->x_cache.t3);
+    tens3D_destroy(dl->mask.t3);
 
     free(dl);
 }
 
 void dropout_4D_forward(layer l, tens x, tens *y)
 {
-    dropout_layer *dl = (drouput_layer *)l.data;
+    dropout_layer *dl = (dropout_layer *)l.data;
 
     assert(dl->x_type == TENS4D);
 
@@ -258,7 +255,7 @@ void dropout_4D_destroy(layer l)
 
     assert(dl->x_type == TENS4D);
 
-    tens4D_destroy(dl->x_cache.t4);
+    tens4D_destroy(dl->mask.t4);
 
     free(dl);
 }

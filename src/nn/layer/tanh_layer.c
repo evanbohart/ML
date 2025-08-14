@@ -1,20 +1,21 @@
 #include <stdlib.h>
+#include <assert.h>
+#include <math.h>
 #include "nn.h"
 
 layer tanh_layer_2D_alloc(int x_size, int batch_size)
 {
     tanh_layer *tl = malloc(sizeof(tanh_layer));
 
-    tl->type = MAT;
+    tl->x_type = MAT;
     tl->x_rows = x_size;
     tl->batch_size = batch_size;
 
     tl->x_cache.type = MAT;
-    tl->x_cache.m = mat_alloc(x_size, batch_size)
+    tl->x_cache.m = mat_alloc(x_size, batch_size);
 
     layer l;
 
-    l.type = TANH;
     l.data = tl;
 
     l.forward = tanh_2D_forward;
@@ -33,7 +34,7 @@ layer tanh_layer_3D_alloc(int x_rows, int x_cols, int batch_size)
 {
     tanh_layer *tl = malloc(sizeof(tanh_layer));
 
-    tl->type = TENS3D;
+    tl->x_type = TENS3D;
     tl->x_rows = x_rows;
     tl->x_cols = x_cols;
     tl->batch_size = batch_size;
@@ -43,7 +44,6 @@ layer tanh_layer_3D_alloc(int x_rows, int x_cols, int batch_size)
 
     layer l;
 
-    l.type = TANH;
     l.data = tl;
 
     l.forward = tanh_3D_forward;
@@ -63,19 +63,18 @@ layer tanh_layer_4D_alloc(int x_rows, int x_cols,
 {
     tanh_layer *tl = malloc(sizeof(tanh_layer));
 
-    tl->type = TENS4D;
+    tl->x_type = TENS4D;
     tl->x_rows = x_rows;
     tl->x_cols = x_cols;
     tl->x_depth = x_depth;
     tl->batch_size = batch_size;
 
     tl->x_cache.type = TENS4D;
-    tl->x_cache.t4 = tens3D_alloc(x_rows, x_cols,
+    tl->x_cache.t4 = tens4D_alloc(x_rows, x_cols,
                                   x_depth, batch_size);
 
     layer l;
 
-    l.type = TANH;
     l.data = tl;
 
     l.forward = tanh_4D_forward;
@@ -94,9 +93,9 @@ void tanh_2D_forward(layer l, tens x, tens *y)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == MAT);
+    assert(tl->x_type == MAT);
 
-    assert(x.type == tl->type);
+    assert(x.type == tl->x_type);
     assert(x.m.rows == tl->x_rows);
     assert(x.m.cols == tl->batch_size);
 
@@ -112,9 +111,9 @@ void tanh_2D_backprop(layer l, tens dy, tens *dx, float rate)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == MAT);
+    assert(tl->x_type == MAT);
 
-    assert(dy.type == tl->type);
+    assert(dy.type == tl->x_type);
     assert(dy.m.rows == tl->x_rows);
     assert(dy.m.cols == tl->batch_size);
 
@@ -133,7 +132,7 @@ void tanh_2D_destroy(layer l)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == MAT);
+    assert(tl->x_type == MAT);
 
     free(tl->x_cache.m.vals);
 
@@ -144,9 +143,9 @@ void tanh_3D_forward(layer l, tens x, tens *y)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == TENS3D);
+    assert(tl->x_type == TENS3D);
 
-    assert(x.type == tl->type);
+    assert(x.type == tl->x_type);
     assert(x.t3.rows == tl->x_rows);
     assert(x.t3.cols == tl->x_cols);
     assert(x.t3.depth == tl->batch_size);
@@ -163,9 +162,9 @@ void tanh_3D_backprop(layer l, tens dy, tens *dx, float rate)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == TENS3D);
+    assert(tl->x_type == TENS3D);
 
-    assert(dy.type == tl->type);
+    assert(dy.type == tl->x_type);
     assert(dy.t3.rows == tl->x_rows);
     assert(dy.t3.cols == tl->x_cols);
     assert(dy.t3.depth == tl->batch_size);
@@ -185,7 +184,7 @@ void tanh_3D_destroy(layer l)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == TENS3D);
+    assert(tl->x_type == TENS3D);
 
     tens3D_destroy(tl->x_cache.t3);
 
@@ -196,9 +195,9 @@ void tanh_4D_forward(layer l, tens x, tens *y)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == TENS4D);
+    assert(tl->x_type == TENS4D);
 
-    assert(x.type == tl->type);
+    assert(x.type == tl->x_type);
     assert(x.t4.rows == tl->x_rows);
     assert(x.t4.cols == tl->x_cols);
     assert(x.t4.depth == tl->x_depth);
@@ -217,9 +216,9 @@ void tanh_4D_backprop(layer l, tens dy, tens *dx, float rate)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == TENS4D);
+    assert(tl->x_type == TENS4D);
 
-    assert(dy.type == tl->type);
+    assert(dy.type == tl->x_type);
     assert(dy.t4.rows == tl->x_rows);
     assert(dy.t4.cols == tl->x_cols);
     assert(dy.t4.depth == tl->x_depth);
@@ -242,9 +241,9 @@ void tanh_4D_destroy(layer l)
 {
     tanh_layer *tl = (tanh_layer *)l.data;
 
-    assert(tl->type == TENS4D);
+    assert(tl->x_type == TENS4D);
 
-    tens3D_destroy(tl->x_cache.t4);
+    tens4D_destroy(tl->x_cache.t4);
 
     free(tl);
 }

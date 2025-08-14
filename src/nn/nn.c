@@ -3,60 +3,39 @@
 #include <math.h>
 #include "nn.h"
 
-nn nn_init(void)
+nn nn_alloc(int max_nodes)
 {
     nn n;
 
-    n.head = NULL;
-    n.tail = NULL;
+    n.max_nodes = max_nodes;
+    n.num_nodes = 0;
+    n.nodes = malloc(max_nodes * sizeof(node));
 
     return n;
 }
 
 void nn_add_layer(nn *n, layer l)
 {
-    if (!n.head) {
-        n->head = malloc(sizeof(node));
-        n->head->type = LAYER;
-        n->head->l = l;
+    assert(n->num_nodes != n->max_nodes);
 
-        n->head->next = NULL;
-        n->head->prev = NULL;
-        n->tail = n->head;
-    }
-    else {
-        n->tail->next = malloc(sizeof(node));
-        n->tail->next->type = LAYER;
-        n->tail->next->l = l;
+    node d;
 
-        node *temp = n->tail;
-        n->tail = n->tail->next;
-        n->tail->next = NULL;
-        n->tail->prev = temp;
-    }
+    d.type = LAYER;
+    d.l = l;
+
+    n->nodes[n->num_nodes++] = d;
 }
 
 void nn_add_block(nn *n, block b)
 {
-    if (!n.head) {
-        n->head = malloc(sizeof(node));
-        n->head->type = BLOCK;
-        n->head->b = b;
+    assert(n->num_nodes != n->max_nodes);
 
-        n->head->next = NULL;
-        n->head->prev = NULL;
-        n->tail = n->head;
-    }
-    else {
-        n->tail->next = malloc(sizeof(node));
-        n->tail->next->type = BLOCK;
-        n->tail->next->b = b;
+    node d;
 
-        node *temp = n->tail;
-        n->tail = n->tail->next;
-        n->tail->next = NULL;
-        n->tail->prev = temp;
-    }
+    d.type = BLOCK;
+    d.b = b;
+
+    n->nodes[n->num_nodes++] = d;
 }
 
 void nn_forward(nn n, tens x, tens *y)
@@ -64,19 +43,17 @@ void nn_forward(nn n, tens x, tens *y)
     tens x_current = x;
     tens y_current;
 
-    node *current = n.head;
-    bool first = true;
-
-    while (current) {
-        switch (current->type) {
+    for (int i = 0; i < n.num_nodes; ++i) {
+        switch (n.nodes[i].type) {
             case LAYER:
-                current->l.forward(current->l, x_current, &y_current);
+                n.nodes[i].l.forward(n.nodes[i].l, x_current, &y_current);
                 break;
             case BLOCK:
-                current->b.forward(current->b, x_current, &y_current);
+                n.nodes[i].b.forward(n.nodes[i].b, x_current, &y_current);
+                break;
         }
 
-        if (!first) {
+        if (i > 0) {
             switch (x_current.type) {
                 case MAT:
                     free(x_current.m.vals);
@@ -86,15 +63,14 @@ void nn_forward(nn n, tens x, tens *y)
                     break;
                 case TENS4D:
                     tens4D_destroy(x_current.t4);
+                    break;
             }
         }
 
-        first = false;
-
         x_current = y_current;
-
-        current = current->next;
     }
+
+    *y = y_current;
 }
 
 void nn_backprop(nn n, tens dy, tens *dx, float rate)
@@ -102,19 +78,17 @@ void nn_backprop(nn n, tens dy, tens *dx, float rate)
     tens dy_current = dy;
     tens dx_current;
 
-    node *current = n.tail;
-    bool first = true;
-
-    while (current) {
-        switch (current->type) {
+    for (int i = n.num_nodes - 1; i >= 0; --i) {
+        switch (n.nodes[i].type) {
             case LAYER:
-                current->l.backprop(current->l, dy_current, &dx_current, rate);
+                n.nodes[i].l.backprop(n.nodes[i].l, dy_current, &dx_current, rate);
                 break;
             case BLOCK:
-                current->b.backprop(current->b, dy_current, &dx_current, rate);
+                n.nodes[i].b.backprop(n.nodes[i].b, dy_current, &dx_current, rate);
+                break;
         }
 
-        if (!first) {
+        if (i < n.num_nodes - 1) {
             switch (dy_current.type) {
                 case MAT:
                     free(dy_current.m.vals);
@@ -124,54 +98,106 @@ void nn_backprop(nn n, tens dy, tens *dx, float rate)
                     break;
                 case TENS4D:
                     tens4D_destroy(dy_current.t4);
+                    break;
             }
         }
 
-        first = false;
-
         dy_current = dx_current;
-
-        current = current->prev;
     }
+
+    *dx = dx_current;
 }
 
 void nn_destroy(nn n)
 {
-    node *current = n.head;
-
-    while (current)
-    {
-        switch (current->type) {
+    for (int i = 0; i < n.num_nodes; ++i) {
+        switch (n.nodes[i].type) {
             case LAYER:
-                current->l.destroy(current->l);
+                n.nodes[i].l.destroy(n.nodes[i].l);
                 break;
             case BLOCK:
-                current->b.destroy(current->b);
+                n.nodes[i].b.destroy(n.nodes[i].b);
                 break;
         }
-
-        node *temp = current;
-        current = current->next;
-
-        free(temp);
     }
 }
 
 void nn_init(nn n)
 {
-    
+    for (int i = 0; i < n.num_nodes; ++i) {
+        switch (n.nodes[i].type) {
+            case LAYER:
+                if (n.nodes[i].l.init) {
+                    n.nodes[i].l.init(n.nodes[i].l);
+                }
+
+                break;
+            case BLOCK:
+                if (n.nodes[i].b.init) {
+                    n.nodes[i].b.init(n.nodes[i].b);
+                }
+
+                break;
+        }
+    }
 }
 
 void nn_print(nn n)
 {
-    
+    for (int i = 0; i < n.num_nodes; ++i) {
+        switch (n.nodes[i].type) {
+            case LAYER:
+                if (n.nodes[i].l.print) {
+                    n.nodes[i].l.print(n.nodes[i].l);
+                }
+
+                break;
+            case BLOCK:
+                if (n.nodes[i].b.print) {
+                    n.nodes[i].b.print(n.nodes[i].b);
+                }
+
+                break;
+        }
+    }
 }
 
 void nn_save(nn n, FILE *f)
 {
-    
+    for (int i = 0; i < n.num_nodes; ++i) {
+        switch (n.nodes[i].type) {
+            case LAYER:
+                if (n.nodes[i].l.save) {
+                    n.nodes[i].l.save(n.nodes[i].l, f);
+                }
+
+                break;
+            case BLOCK:
+                if (n.nodes[i].b.save) {
+                    n.nodes[i].b.save(n.nodes[i].b, f);
+                }
+
+                break;
+        }
+    }
 }
 
 void nn_load(nn n, FILE *f)
 {
+    for (int i = 0; i < n.num_nodes; ++i) {
+        switch (n.nodes[i].type) {
+            case LAYER:
+                if (n.nodes[i].l.load) {
+                    n.nodes[i].l.load(n.nodes[i].l, f);
+                }
+
+                break;
+            case BLOCK:
+                if (n.nodes[i].b.load) {
+                    n.nodes[i].b.load(n.nodes[i].b, f);
+                }
+
+                break;
+        }
+    }
 }

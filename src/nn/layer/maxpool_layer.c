@@ -10,6 +10,7 @@ layer maxpool_layer_alloc(int x_rows, int x_cols, int x_depth,
     assert(x_cols % pooling_size == 0);
 
     maxpool_layer *ml = malloc(sizeof(maxpool_layer));
+
     ml->x_rows = x_rows;
     ml->x_cols = x_cols;
     ml->x_depth = x_depth;
@@ -21,11 +22,12 @@ layer maxpool_layer_alloc(int x_rows, int x_cols, int x_depth,
     ml->mask = tens4D_alloc(x_rows, x_cols, x_depth, batch_size);
 
     layer l;
-    l.type = MAXPOOL;
+
     l.data = ml;
     l.forward = maxpool_forward;
     l.backprop = maxpool_backprop;
     l.destroy = maxpool_destroy;
+
     l.init = NULL;
     l.print = NULL;
     l.save = NULL;
@@ -34,23 +36,23 @@ layer maxpool_layer_alloc(int x_rows, int x_cols, int x_depth,
     return l;
 }
 
-void maxpool_forward(layer l, void *input, void **output)
+void maxpool_forward(layer l, tens x, tens *y)
 {
     maxpool_layer *ml = (maxpool_layer *)l.data;
-    tens4D *tens4D_input = (tens4D *)input;
 
-    assert(tens4D_input->rows == ml->x_rows);
-    assert(tens4D_input->cols == ml->x_cols);
-    assert(tens4D_input->depth == ml->x_depth);
-    assert(tens4D_input->batches == ml->batch_size);
+    assert(x.type == TENS4D);
+    assert(x.t4.rows == ml->x_rows);
+    assert(x.t4.cols == ml->x_cols);
+    assert(x.t4.depth == ml->x_depth);
+    assert(x.t4.batches == ml->batch_size);
 
-    tens4D *tens4D_output = malloc(sizeof(tens4D));
-    *tens4D_output = tens4D_alloc(ml->y_rows, ml->y_cols,
-                                   ml->x_depth, ml->batch_size);
+    y->type = TENS4D;
+    y->t4 = tens4D_alloc(ml->y_rows, ml->y_cols,
+                         ml->x_depth, ml->batch_size);
 
     tens4D_fill(ml->mask, 0.0f);
 
-    #pragma omp parallel for collapse(2) schedule(static)
+    #pragma omp parallel for collapse(4) schedule(static)
     for (int i = 0; i < ml->batch_size; ++i) {
         for (int j = 0; j < ml->x_depth; ++j) {
             for (int k = 0; k < ml->y_rows; ++k) {
@@ -63,7 +65,7 @@ void maxpool_forward(layer l, void *input, void **output)
                         for (int n = 0; n < ml->pooling_size; ++n) {
                             int row = k * ml->pooling_size + m;
                             int col = l * ml->pooling_size + n;
-                            float val = tens4D_at(*tens4D_input, row, col, j, i);
+                            float val = tens4D_at(x.t4, row, col, j, i);
                             if (val > max) {
                                 max = val;
                                 max_row = m;
@@ -72,7 +74,7 @@ void maxpool_forward(layer l, void *input, void **output)
                         }
                     }
 
-                    tens4D_at(*tens4D_output, k, l, j, i) = max;
+                    tens4D_at(y->t4, k, l, j, i) = max;
 
                     int mask_row = k * ml->pooling_size + max_row;
                     int mask_col = l * ml->pooling_size + max_col;
@@ -82,27 +84,25 @@ void maxpool_forward(layer l, void *input, void **output)
             }
         }
     }
-
-    *output = tens4D_output;
 }
 
-void maxpool_backprop(layer l, void *grad_in, void **grad_out, float rate)
+void maxpool_backprop(layer l, tens dy, tens *dx, float rate)
 {
     maxpool_layer *ml = (maxpool_layer *)l.data;
-    tens4D *tens4D_grad_in = (tens4D *)grad_in;
 
-    assert(tens4D_grad_in->rows == ml->y_rows);
-    assert(tens4D_grad_in->cols == ml->y_cols);
-    assert(tens4D_grad_in->depth == ml->x_depth);
-    assert(tens4D_grad_in->batches == ml->batch_size);
+    assert(dy.type == TENS4D);
+    assert(dy.t4.rows == ml->y_rows);
+    assert(dy.t4.cols == ml->y_cols);
+    assert(dy.t4.depth == ml->x_depth);
+    assert(dy.t4.batches == ml->batch_size);
 
-    tens4D *tens4D_grad_out = malloc(sizeof(tens4D));
-    *tens4D_grad_out = tens4D_alloc(ml->x_rows, ml->x_cols,
-                                    ml->x_depth, ml->batch_size);
+    dx->type = TENS4D;
+    dx->t4 = tens4D_alloc(ml->x_rows, ml->x_cols,
+                          ml->x_depth, ml->batch_size);
 
-    tens4D_fill(*tens4D_grad_out, 0.0f);
+    tens4D_fill(dx->t4, 0.0f);
 
-    #pragma omp parallel for collapse(2) schedule(static)
+    #pragma omp parallel for collapse(6) schedule(static)
     for (int i = 0; i < ml->batch_size; ++i) {
         for (int j = 0; j < ml->x_depth; ++j) {
             for (int k = 0; k < ml->y_rows; ++k) {
@@ -112,8 +112,8 @@ void maxpool_backprop(layer l, void *grad_in, void **grad_out, float rate)
                             int row = k * ml->pooling_size + m;
                             int col = l * ml->pooling_size + n;
                             if (tens4D_at(ml->mask, row, col, j, i) == 1.0f) {
-                                float val = tens4D_at(*tens4D_grad_in, k, l, j, i);
-                                tens4D_at(*tens4D_grad_out, row, col, j, i) = val;
+                                float val = tens4D_at(dy.t4, k, l, j, i);
+                                tens4D_at(dx->t4, row, col, j, i) = val;
                             }
                         }
                     }
@@ -121,8 +121,6 @@ void maxpool_backprop(layer l, void *grad_in, void **grad_out, float rate)
             }
         }
     }
-
-    *grad_out = tens4D_grad_out;
 }
 
 void maxpool_destroy(layer l)
@@ -130,5 +128,6 @@ void maxpool_destroy(layer l)
     maxpool_layer *ml = (maxpool_layer *)l.data;
 
     tens4D_destroy(ml->mask);
+
     free(ml);
 }

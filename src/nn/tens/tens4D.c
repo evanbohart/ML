@@ -6,12 +6,14 @@
 tens4D tens4D_alloc(int rows, int cols, int depth, int batches)
 {
     tens4D t;
+
     t.rows = rows;
     t.cols = cols;
     t.depth = depth;
     t.batches = batches;
 
     t.tens3Ds = malloc(batches * sizeof(tens3D));
+
     for (int i = 0; i < batches; ++i) {
         t.tens3Ds[i] = tens3D_alloc(rows, cols, depth);
     }
@@ -48,6 +50,17 @@ void tens4D_copy(tens4D dest, tens4D t)
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < dest.batches; ++i) {
         tens3D_copy(dest.tens3Ds[i], t.tens3Ds[i]);
+    }
+}
+
+void tens4D_add(tens4D dest, tens4D t1, tens4D t2)
+{
+    assert(dest.batches == t1.batches);
+    assert(dest.batches == t2.batches);
+
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < dest.batches; ++i) {
+        tens3D_add(dest.tens3Ds[i], t1.tens3Ds[i], t2.tens3Ds[i]);
     }
 }
 
@@ -90,16 +103,6 @@ void tens4D_180(tens4D dest, tens4D t)
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < dest.batches; ++i) {
         tens3D_180(dest.tens3Ds[i], t.tens3Ds[i]);
-    }
-}
-
-void tens4D_diag(tens4D dest, tens4D t)
-{
-    assert(dest.batches == t.batches);
-
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < dest.batches; ++i) {
-        tens3D_diag(dest.tens3Ds[i], t.tens3Ds[i]);
     }
 }
 

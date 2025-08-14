@@ -14,11 +14,12 @@ layer dense_layer_alloc(int x_size, int y_size, int batch_size)
     dl->x_cache = mat_alloc(x_size, batch_size);
 
     layer l;
-    l.type = DENSE;
+
     l.data = dl;
     l.forward = dense_forward;
     l.backprop = dense_backprop;
     l.destroy = dense_destroy;
+
     l.init = dense_init;
     l.print = dense_print;
     l.save = dense_save;
@@ -113,18 +114,11 @@ void dense_destroy(layer l)
     free(dl);
 }
 
-void dense_init(layer l, init_type type)
+void dense_init(layer l)
 {
     dense_layer *dl = (dense_layer *)l.data;
 
-    switch (type) {
-        case GLOROT:
-            mat_normal(dl->w, 0, sqrt(2.0 / (dl->x_size + dl->y_size)));
-            break;
-        case HE:
             mat_normal(dl->w, 0, sqrt(2.0 / dl->x_size));
-            break;
-    }
 
     mat_fill(dl->b, 0);
 }

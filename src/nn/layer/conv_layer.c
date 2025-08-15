@@ -6,8 +6,8 @@
 #include "nn.h"
 
 layer conv_layer_alloc(int x_rows, int x_cols, int x_depth,
-                       int batch_size, int filter_size,
-                       int convolutions, int stride, padding_t padding)
+                       int batch_size, int convolutions,
+                       int filter_size, int stride, padding_t padding)
 {
     conv_layer *cl = malloc(sizeof(conv_layer));
 
@@ -82,7 +82,7 @@ void conv_forward(layer l, tens x, tens *y)
         }
     }
 
-    #pragma omp parallel for collapse(2) schedule(static)
+    #pragma omp parallel for collapse(4) schedule(static)
     for (int i = 0; i < cl->batch_size; ++i) {
         for (int j = 0; j < cl->convolutions; ++j) {
             for (int k = 0; k < cl->y_rows; ++k) {
@@ -168,15 +168,14 @@ void conv_backprop(layer l, tens dy, tens *dx, float rate)
         }
     }
 
-    tens4D_scale(dw, dw, 1.0 / cl->batch_size);
+    tens4D_scale(dw, dw, rate / cl->batch_size);
     tens4D_func(dw, dw, clip);
-    tens4D_scale(dw, dw, rate);
     tens4D_sub(cl->filters, cl->filters, dw);
 
     tens3D db = tens3D_alloc(cl->y_rows, cl->y_cols, cl->convolutions);
     tens3D_fill(db, 0);
 
-    #pragma omp parallel for collapse(2) schedule(static)
+    #pragma omp parallel for collapse(3) schedule(static)
     for (int i = 0; i < cl->convolutions; ++i) {
         for (int j = 0; j < cl->y_rows; ++j) {
             for (int k = 0; k < cl->y_cols; ++k) {
@@ -191,9 +190,8 @@ void conv_backprop(layer l, tens dy, tens *dx, float rate)
         }
     }
 
-    tens3D_scale(db, db, 1.0 / cl->batch_size);
+    tens3D_scale(db, db, rate / cl->batch_size);
     tens3D_func(db, db, clip);
-    tens3D_scale(db, db, rate);
     tens3D_sub(cl->b, cl->b, db);
 
     tens4D_destroy(dy_padded);
@@ -218,7 +216,7 @@ void conv_init(layer l)
 {
     conv_layer *cl = (conv_layer *)l.data;
 
-            tens4D_normal(cl->filters, 0, sqrt(2.0 / (cl->x_depth * cl->filter_size * cl->filter_size)));
+    tens4D_normal(cl->filters, 0, sqrt(2.0 / (cl->x_depth * cl->filter_size * cl->filter_size)));
 
     tens3D_fill(cl->b, 0);
 }

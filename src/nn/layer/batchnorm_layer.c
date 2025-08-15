@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
+#include <omp.h>
 #include "nn.h"
 
 layer batchnorm_layer_2D_alloc(int x_size, int batch_size)
@@ -72,7 +73,7 @@ layer batchnorm_layer_4D_alloc(int x_rows, int x_cols,
 
 void batchnorm_2D_forward(layer l, tens x, tens *y)
 {
-    batchnorm_layer *bl = (batchnorm_layer *)l.data;
+/**    batchnorm_layer *bl = (batchnorm_layer *)l.data;
 
     assert(x.type == MAT);
     assert(bl->x_type == MAT);
@@ -83,8 +84,6 @@ void batchnorm_2D_forward(layer l, tens x, tens *y)
     y->type = MAT;
     y->m = mat_alloc(bl->x_rows, bl->batch_size);
 
-    mat_batchnorm(bl->z_cache.m, x.m);
-
     for (int i = 0; i < bl->x_rows; ++i) {
         for (int j = 0; j < bl->batch_size; ++j) {
             float gamma = mat_at(bl->gamma, i, 0);
@@ -93,7 +92,7 @@ void batchnorm_2D_forward(layer l, tens x, tens *y)
 
             mat_at(y->m, i, j) = gamma * z + beta;
         }
-    }
+    } **/
 }
 
 void batchnorm_2D_backprop(layer l, tens dy, tens *dx, float rate)
@@ -117,9 +116,9 @@ void batchnorm_4D_forward(layer l, tens x, tens *y)
 {
     batchnorm_layer *bl = (batchnorm_layer *)l.data;
 
-    assert(x.type = TENS4D);
-    assert(bl->x_type = TENS4D);
+    assert(bl->x_type == TENS4D);
 
+    assert(x.type == TENS4D);
     assert(x.t4.rows == bl->x_rows);
     assert(x.t4.cols == bl->x_cols);
     assert(x.t4.depth == bl->x_depth);
@@ -130,6 +129,7 @@ void batchnorm_4D_forward(layer l, tens x, tens *y)
 
     int n = bl->x_rows * bl->x_cols * bl->batch_size;
 
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < bl->x_depth; ++i) {
         float mean = 0.0f;
 
@@ -173,7 +173,7 @@ void batchnorm_4D_forward(layer l, tens x, tens *y)
         }
     }
 
-    #pragma omp parallel for collapse(4) schedule(static)
+    #pragma omp parallel for schedule(static) collapse(4)
     for (int i = 0; i < bl->x_rows; ++i) {
         for (int j = 0; j < bl->x_cols; ++j) {
             for (int k = 0; k < bl->x_depth; ++k) {
@@ -215,14 +215,15 @@ void batchnorm_4D_backprop(layer l, tens dy, tens *dx, float rate)
     mat dbeta = mat_alloc(bl->x_depth, 1);
     mat_fill(dbeta, 0.0f);
 
-    for (int i = 0; i < bl->x_rows; ++i) {
-        for (int j = 0; j < bl->x_cols; ++j) {
-            for (int k = 0; k < bl->x_depth; ++k) {
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < bl->x_depth; ++i) {
+        for (int j = 0; j < bl->x_rows; ++j) {
+            for (int k = 0; k < bl->x_cols; ++k) {
                 for (int l = 0; l < bl->batch_size; ++l) {
-                    float z = tens4D_at(bl->z_cache.t4, i, j, k, l);
+                    float z = tens4D_at(bl->z_cache.t4, j, k, i, l);
 
-                    mat_at(sum_dy, k, 0) += tens4D_at(dy.t4, i, j, k, l);
-                    mat_at(sum_dy_z, k, 0) += tens4D_at(dy.t4, i, j, k, l) * z;
+                    mat_at(sum_dy, i, 0) += tens4D_at(dy.t4, j, k, i, l);
+                    mat_at(sum_dy_z, i, 0) += tens4D_at(dy.t4, j, k, i, l) * z;
                 }
             }
         }
@@ -230,23 +231,24 @@ void batchnorm_4D_backprop(layer l, tens dy, tens *dx, float rate)
 
     int n = bl->x_rows * bl->x_cols * bl->batch_size;
 
-    for (int i = 0; i < bl->x_rows; ++i) {
-        for (int j = 0; j < bl->x_cols; ++j) {
-            for (int k = 0; k < bl->x_depth; ++k) {
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < bl->x_depth; ++i) {
+        for (int j = 0; j < bl->x_rows; ++j) {
+            for (int k = 0; k < bl->x_cols; ++k) {
                 for (int l = 0; l < bl->batch_size; ++l) {
-                    float dy_val = tens4D_at(dy.t4, i, j, k, l);
-                    float z = tens4D_at(bl->z_cache.t4, i, j, k, l);
+                    float dy_val = tens4D_at(dy.t4, j, k, i, l);
+                    float z = tens4D_at(bl->z_cache.t4, j, k, i, l);
  
-                    float gamma = mat_at(bl->gamma, k, 0);
-                    float var = mat_at(bl->var_cache, k, 0);
+                    float gamma = mat_at(bl->gamma, i, 0);
+                    float var = mat_at(bl->var_cache, i, 0);
                     float eps = 1e-5;
                     float stddev = sqrtf(var + eps);
 
-                    tens4D_at(dx->t4, i, j, k, l) =
-                        (dy_val - mat_at(sum_dy, k, 0) / n - z * mat_at(sum_dy_z, k, 0) / n) * gamma / stddev;
+                    tens4D_at(dx->t4, j, k, i, l) =
+                        (dy_val - mat_at(sum_dy, i, 0) / n - z * mat_at(sum_dy_z, i, 0) / n) * gamma / stddev;
 
-                    mat_at(dgamma, k, 0) += dy_val * z;
-                    mat_at(dbeta, k, 0) += dy_val;
+                    mat_at(dgamma, i, 0) += dy_val * z;
+                    mat_at(dbeta, i, 0) += dy_val;
                 }
             }
         }

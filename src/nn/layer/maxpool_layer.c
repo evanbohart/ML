@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <float.h>
 #include <assert.h>
+#include <omp.h>
 #include "nn.h"
 
 layer maxpool_layer_alloc(int x_rows, int x_cols, int x_depth,

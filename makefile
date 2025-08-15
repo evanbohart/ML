@@ -19,10 +19,10 @@ IMG_OBJS = $(IMG_SRCS:src/%.c=obj/%.o)
 all: img
 
 obj:
-	mkdir obj/nn/tens
-	mkdir obj/nn/layer
-	mkdir obj/nn/block
-	mkdir obj/nn/utils
+	mkdir -p obj/nn/tens \
+	mkdir -p obj/nn/layer \
+	mkdir -p obj/nn/block \
+	mkdir -p obj/nn/utils
 
 obj/%.o: src/%.c | obj
 	$(CC) $(CFLAGS) -c $< -o $@

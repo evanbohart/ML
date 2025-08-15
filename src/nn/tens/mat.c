@@ -17,6 +17,7 @@ mat mat_alloc(int rows, int cols)
 
 void mat_rand(mat m, float min, float max)
 {
+
 	for (int i = 0; i < m.rows; ++i) {
 		for (int j = 0; j < m.cols; ++j) {
 			mat_at(m, i, j) = rand_float(min, max);
@@ -26,6 +27,7 @@ void mat_rand(mat m, float min, float max)
 
 void mat_normal(mat m, float mean, float stddev)
 {
+
     for (int i = 0; i < m.rows; ++i) {
         for (int j = 0; j < m.cols; ++j) {
             mat_at(m, i, j) = rand_normal(mean, stddev);
@@ -35,6 +37,7 @@ void mat_normal(mat m, float mean, float stddev)
 
 void mat_fill(mat m, float val)
 {
+
 	for (int i = 0; i < m.rows; ++i) {
 		for (int j = 0; j < m.cols; ++j) {
 			mat_at(m, i, j) = val;
@@ -46,6 +49,7 @@ void mat_copy(mat dest, mat m)
 {
 	assert(dest.rows == m.rows);
 	assert(dest.cols == m.cols);
+
 
 	for (int i = 0; i < dest.rows; ++i) {
 		for (int j = 0; j < dest.cols; ++j) {
@@ -61,6 +65,7 @@ void mat_add(mat dest, mat m1, mat m2)
 	assert(dest.rows == m1.rows);
 	assert(dest.cols == m1.cols);
 
+
 	for (int i = 0; i < dest.rows; ++i) {
 		for (int j = 0; j < dest.cols; ++j) {
 			mat_at(dest, i, j) = mat_at(m1, i, j) + mat_at(m2, i, j);
@@ -75,6 +80,7 @@ void mat_sub(mat dest, mat m1, mat m2)
 	assert(dest.rows == m1.rows);
 	assert(dest.cols == m1.cols);
 
+
 	for (int i = 0; i < dest.rows; ++i) {
 		for (int j = 0; j < dest.cols; ++j) {
 			mat_at(dest, i, j) = mat_at(m1, i, j) - mat_at(m2, i, j);
@@ -87,6 +93,7 @@ void mat_dot(mat dest, mat m1, mat m2)
 	assert(m1.cols == m2.rows);
 	assert(dest.rows == m1.rows);
 	assert(dest.cols == m2.cols);
+
 
 	for (int i = 0; i < dest.rows; ++i) {
 		for (int j = 0; j < dest.cols; ++j) {
@@ -105,6 +112,7 @@ void mat_had(mat dest, mat m1, mat m2)
 	assert(dest.rows == m1.rows);
 	assert(dest.cols == m1.cols);
 
+
 	for (int i = 0; i < dest.rows; ++i) {
 		for (int j = 0; j < dest.cols; ++j) {
 			mat_at(dest, i, j) = mat_at(m1, i, j) * mat_at(m2, i, j);
@@ -116,6 +124,7 @@ void mat_trans(mat dest, mat m)
 {
 	assert(dest.rows == m.cols);
 	assert(dest.cols == m.rows);
+
 
 	for (int i = 0; i < dest.rows; ++i) {
 		for (int j = 0; j < dest.cols; ++j) {
@@ -129,6 +138,7 @@ void mat_180(mat dest, mat m)
     assert(dest.rows == m.rows);
     assert(dest.cols == m.cols);
 
+
     for (int i = 0; i < dest.rows; ++i) {
         for (int j = 0; j < dest.cols; ++j) {
             mat_at(dest, i, j) = mat_at(m, m.rows - 1 - i, m.cols - 1 - j);
@@ -140,6 +150,7 @@ void mat_scale(mat dest, mat m, float a)
 {
 	assert(dest.rows == m.rows);
 	assert(dest.cols == m.cols);
+
 
 	for (int i = 0; i < dest.rows; ++i) {
 		for (int j = 0; j < dest.cols; ++j) {
@@ -153,6 +164,7 @@ void mat_func(mat dest, mat m, func f)
 	assert(dest.rows == m.rows);
 	assert(dest.cols == m.cols);
 
+
 	for (int i = 0; i < dest.rows; ++i) {
 		for (int j = 0; j < dest.cols; ++j) {
 			mat_at(dest, i, j) = f(mat_at(m, i, j));
@@ -164,6 +176,7 @@ void mat_pad(mat dest, mat m, padding_t padding)
 {
     assert(dest.rows == m.rows + padding[TOP] + padding[BOTTOM]);
     assert(dest.cols == m.cols + padding[LEFT] + padding[RIGHT]);
+
 
     for (int i = 0; i < dest.rows; ++i) {
         for (int j = 0; j < dest.cols; ++j) {
@@ -218,70 +231,6 @@ void mat_softmax(mat dest, mat m)
 
         for (int j = 0; j < m.rows; ++j) {
             mat_at(dest, j, i) /= sum;
-        }
-    }
-}
-
-void mat_batchnorm(mat dest, mat m)
-{
-    assert(dest.rows == m.rows);
-    assert(dest.cols == m.cols);
-
-    for (int i = 0; i < dest.rows; ++i) {
-        float mean = 0.0f;
-
-        for (int j = 0; j < dest.cols; ++j) {
-            mean += mat_at(m, i, j);
-        }
-
-        mean /= dest.cols;
-
-        float var = 0.0f;
-
-        for (int j = 0; j < dest.cols; ++j) {
-            float diff = mat_at(m, i, j) - mean;
-            var += diff * diff;
-        }
-
-        var /= dest.cols;
-
-        float eps = 1e-5;
-        float stddev = sqrtf(var + eps);
-
-        for (int j = 0; j < dest.cols; ++j) {
-            mat_at(dest, i, j) = (mat_at(m, i, j) - mean) / stddev;
-        }
-    }
-}
-
-void mat_layernorm(mat dest, mat m)
-{
-    assert(dest.rows == m.rows);
-    assert(dest.cols == m.cols);
-
-    for (int i = 0; i < dest.cols; ++i) {
-        float mean = 0.0f;
-
-        for (int j = 0; j < dest.rows; ++j) {
-            mean += mat_at(m, i, j);
-        }
-
-        mean /= dest.rows;
-
-        float var = 0.0f;
-
-        for (int j = 0; j < dest.rows; ++j) {
-            float diff = mat_at(m, i, j) - mean;
-            var += diff * diff;
-        }
-
-        var /= dest.rows;
-
-        float eps = 1e-5;
-        float stddev = sqrtf(var + eps);
-
-        for (int j = 0; j < dest.rows; ++j) {
-            mat_at(dest, i, j) = (mat_at(m, i, j) - mean) / stddev;
         }
     }
 }

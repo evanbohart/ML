@@ -13,13 +13,16 @@ block res_block_alloc(int sub_layers, int x_rows, int x_cols,
     rb->x_rows = x_rows;
     rb->x_cols = x_cols;
     rb->x_depth = x_depth;
+    rb->convolutions = convolutions;
     rb->batch_size = batch_size;
 
-    rb->x_cache = tens4D_alloc(x_rows, x_cols,
-                               x_depth, batch_size);
+    rb->skip = tens4D_alloc(x_rows, x_cols,
+                            convolutions, batch_size);
 
-    int padding_width = fmax(0, (x_cols - 1) * stride + filter_size - x_cols);
-    int padding_height = fmax(0, (x_rows - 1) * stride + filter_size - x_rows);
+    int padding_width = (filter_size - 1);
+    int padding_height = (filter_size - 1);
+
+    padding_t proj_padding = { 0, 0, 0, 0 };
 
     padding_t padding;
     padding[TOP] = padding_height / 2;
@@ -31,14 +34,18 @@ block res_block_alloc(int sub_layers, int x_rows, int x_cols,
     rb->batchnorm_layers = malloc(sub_layers * sizeof(layer));
     rb->relu_layers = malloc(sub_layers * sizeof(layer));
 
+    rb->proj_layer = conv_layer_alloc(x_rows, x_cols, x_depth,
+		    		      batch_size, convolutions,
+				      1, 1, proj_padding);
+
     for (int i = 0; i < sub_layers; ++i) {
-        rb->conv_layers[i] = conv_layer_alloc(x_rows, x_cols, x_depth,
-                                              batch_size, convolutions,
-                                              filter_size, stride, padding);
-        rb->batchnorm_layers[i] = batchnorm_layer_4D_alloc(x_rows, x_cols,
-                                                           x_depth, batch_size);
-        rb->relu_layers[i] = relu_layer_4D_alloc(x_rows, x_cols,
-                                                 x_depth, batch_size);
+	rb->conv_layers[i] = conv_layer_alloc(x_rows, x_cols, convolutions,
+					      batch_size, convolutions,
+					      filter_size, stride, padding);
+	rb->batchnorm_layers[i] = batchnorm_layer_4D_alloc(x_rows, x_cols,
+							   convolutions, batch_size);
+	rb->relu_layers[i] = relu_layer_4D_alloc(x_rows, x_cols,
+						 convolutions, batch_size);
     }
 
     block b;
@@ -67,19 +74,20 @@ void res_forward(block b, tens x, tens *y)
     assert(x.t4.depth == rb->x_depth);
     assert(x.t4.batches == rb->batch_size);
 
-    tens4D_copy(rb->x_cache, x.t4);
-
     tens x_current = x;
     tens y_current;
+
+    rb->proj_layer.forward(rb->proj_layer, x_current, &y_current);
+
+    tens4D_copy(rb->skip, y_current.t4);
+
+    x_current = y_current;
 
     for (int i = 0; i < rb->sub_layers - 1; ++i) {
         rb->conv_layers[i].forward(rb->conv_layers[i],
                                    x_current, &y_current);
 
-        if (i > 0) {
-            tens4D_destroy(x_current.t4);
-        }
-
+        tens4D_destroy(x_current.t4);
         x_current = y_current;
 
         rb->batchnorm_layers[i].forward(rb->batchnorm_layers[i],
@@ -107,7 +115,7 @@ void res_forward(block b, tens x, tens *y)
     tens4D_destroy(x_current.t4);
     x_current = y_current;
 
-    tens4D_add(x_current.t4, x_current.t4, rb->x_cache);
+    tens4D_add(x_current.t4, x_current.t4, rb->skip);
 
     rb->relu_layers[rb->sub_layers - 1].forward(rb->relu_layers[rb->sub_layers - 1],
                                                 x_current, &y_current);
@@ -124,14 +132,14 @@ void res_backprop(block b, tens dy, tens *dx, float rate)
     assert(dy.type == TENS4D);
     assert(dy.t4.rows == rb->x_rows);
     assert(dy.t4.cols == rb->x_cols);
-    assert(dy.t4.depth == rb->x_depth);
+    assert(dy.t4.depth == rb->convolutions);
     assert(dy.t4.batches == rb->batch_size);
 
     tens dy_current = dy;
     tens dx_current;
 
     tens4D dskip = tens4D_alloc(rb->x_rows, rb->x_cols,
-                                rb->x_depth, rb->batch_size);
+                                rb->convolutions, rb->batch_size);
 
     rb->relu_layers[rb->sub_layers - 1].backprop(rb->relu_layers[rb->sub_layers - 1],
                                                  dy_current, &dx_current, rate);
@@ -172,7 +180,11 @@ void res_backprop(block b, tens dy, tens *dx, float rate)
         dy_current = dx_current;
     }
 
-    tens4D_add(dx_current.t4, dx_current.t4, dskip);
+    tens4D_add(dy_current.t4, dy_current.t4, dskip);
+
+    rb->proj_layer.backprop(rb->proj_layer, dy_current, &dx_current, rate);
+
+    tens4D_destroy(dy_current.t4);
 
     *dx = dx_current;
 
@@ -196,6 +208,8 @@ void res_init(block b)
 {
     res_block *rb = (res_block *)b.data;
 
+    rb->proj_layer.init(rb->proj_layer);
+
     for (int i = 0; i < rb->sub_layers; ++i) {
         rb->conv_layers[i].init(rb->conv_layers[i]);
         rb->batchnorm_layers[i].init(rb->batchnorm_layers[i]);
@@ -205,6 +219,8 @@ void res_init(block b)
 void res_print(block b)
 {
     res_block *rb = (res_block *)b.data;
+
+    rb->proj_layer.print(rb->proj_layer);
 
     for (int i = 0; i < rb->sub_layers; ++i) {
         rb->conv_layers[i].print(rb->conv_layers[i]);
@@ -216,6 +232,8 @@ void res_save(block b, FILE *f)
 {
     res_block *rb = (res_block *)b.data;
 
+    rb->proj_layer.save(rb->proj_layer, f);
+
     for (int i = 0; i < rb->sub_layers; ++i) {
         rb->conv_layers[i].save(rb->conv_layers[i], f);
         rb->batchnorm_layers[i].save(rb->batchnorm_layers[i], f);
@@ -225,6 +243,8 @@ void res_save(block b, FILE *f)
 void res_load(block b, FILE *f)
 {
     res_block *rb = (res_block *)b.data;
+
+    rb->proj_layer.load(rb->proj_layer, f);
 
     for (int i = 0; i < rb->sub_layers; ++i) {
         rb->conv_layers[i].load(rb->conv_layers[i], f);

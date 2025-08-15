@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <omp.h>
 #include "nn.h"
 
 layer flatten_layer_alloc(int x_rows, int x_cols,
@@ -66,7 +67,7 @@ void flatten_backprop(layer l, tens dy, tens *dx, float rate)
     dx->t4 = tens4D_alloc(fl->x_rows, fl->x_cols,
                           fl->x_depth, fl->batch_size);
 
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < fl->batch_size; ++i) {
         for (int j = 0; j < fl->x_depth; ++j) {
             for (int k = 0; k < fl->x_rows; ++k) {

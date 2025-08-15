@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include <omp.h>
 #include "nn.h"
 
 layer dense_layer_alloc(int x_size, int y_size, int batch_size)
@@ -85,14 +86,12 @@ void dense_backprop(layer l, tens dy, tens *dx, float rate)
         mat_at(db, i, 0) = sum;
     }
 
-    mat_scale(dw, dw, 1.0 / dl->batch_size);
+    mat_scale(dw, dw, rate / dl->batch_size);
     mat_func(dw, dw, clip);
-    mat_scale(dw, dw, rate);
     mat_sub(dl->w, dl->w, dw);
 
-    mat_scale(db, db, 1.0 / dl->batch_size);
+    mat_scale(db, db, rate / dl->batch_size);
     mat_func(db, db, clip);
-    mat_scale(db, db, rate);
     mat_sub(dl->b, dl->b, db);
 
     mat_dot(dx->m, w_T, dy.m);
@@ -118,7 +117,7 @@ void dense_init(layer l)
 {
     dense_layer *dl = (dense_layer *)l.data;
 
-            mat_normal(dl->w, 0, sqrt(2.0 / dl->x_size));
+    mat_normal(dl->w, 0, sqrt(2.0 / dl->x_size));
 
     mat_fill(dl->b, 0);
 }

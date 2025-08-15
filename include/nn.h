@@ -451,16 +451,18 @@ typedef struct res_block {
     int x_rows;
     int x_cols;
     int x_depth;
+    int convolutions;
     int batch_size;
-    tens4D x_cache;
+    tens4D skip;
+    layer proj_layer;
     layer *conv_layers;
     layer *batchnorm_layers;
     layer *relu_layers;
 } res_block;
 
 block res_block_alloc(int sub_layers, int x_rows, int x_cols,
-                      int x_depth, int batch_size, int filter_size,
-                      int convolutions, int stride);
+                      int x_depth, int batch_size, int convolutions,
+                      int filter_size, int stride);
 void res_forward(block b, tens x, tens *y);
 void res_backprop(block b, tens dy, tens *dx, float rate);
 void res_destroy(block b);

@@ -11,7 +11,7 @@
 #define EPOCHS 19
 #define SHOWCASE
 
-int read_next_img(FILE *f, tens3D x)
+int read_next_img(FILE *f, tens x, int batch)
 {
     unsigned char target;
     if (!fread(&target, 1, sizeof(target), f)) return -1;
@@ -21,7 +21,7 @@ int read_next_img(FILE *f, tens3D x)
             for (int k = 0; k < 32; ++k) {
                 unsigned char val;
                 if (!fread(&val, 1, sizeof(val), f)) return -1;
-                tens3D_at(x, j, k, i) = val / 255.0f;
+                tens4D_at(x, j, k, i, batch) = val / 255.0f;
             }
         }
     }
@@ -44,30 +44,48 @@ int main(void)
     char test_file[FILENAME_MAX];
     get_path(test_file, "cifar-10-batches-bin/test_batch.bin");
 
-    nn n = nn_alloc(15);
-    nn_add_block(&n, res_block_alloc(2, 32, 32, 3, BATCH_SIZE, 32, 3, 1));
+    padding_t same = { 1, 1, 1, 1 };
+
+    nn n = nn_alloc(32);
+
+    nn_add_layer(&n, conv_layer_alloc(32, 32, 3, BATCH_SIZE, 32, 3, 1, same));
+    nn_add_layer(&n, batchnorm_layer_4D_alloc(32, 32, 32, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_4D_alloc(32, 32, 32, BATCH_SIZE));
+    nn_add_layer(&n, conv_layer_alloc(32, 32, 32, BATCH_SIZE, 32, 3, 1, same));
+    nn_add_layer(&n, batchnorm_layer_4D_alloc(32, 32, 32, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_4D_alloc(32, 32, 32, BATCH_SIZE));
     nn_add_layer(&n, maxpool_layer_alloc(32, 32, 32, BATCH_SIZE, 2));
 #ifdef TRAIN
     nn_add_layer(&n, dropout_layer_4D_alloc(16, 16, 32, BATCH_SIZE, 0.25));
 #endif
-    nn_add_block(&n, res_block_alloc(2, 16, 16, 32, BATCH_SIZE, 64, 3, 1));
+    nn_add_layer(&n, conv_layer_alloc(16, 16, 32, BATCH_SIZE, 64, 3, 1, same));
+    nn_add_layer(&n, batchnorm_layer_4D_alloc(16, 16, 64, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_4D_alloc(16, 16, 64, BATCH_SIZE));
+    nn_add_layer(&n, conv_layer_alloc(16, 16, 64, BATCH_SIZE, 64, 3, 1, same));
+    nn_add_layer(&n, batchnorm_layer_4D_alloc(16, 16, 64, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_4D_alloc(16, 16, 64, BATCH_SIZE));
     nn_add_layer(&n, maxpool_layer_alloc(16, 16, 64, BATCH_SIZE, 2));
 #ifdef TRAIN
     nn_add_layer(&n, dropout_layer_4D_alloc(8, 8, 64, BATCH_SIZE, 0.25));
 #endif
-    nn_add_block(&n, res_block_alloc(2, 8, 8, 64, BATCH_SIZE, 128, 3, 1));
+    nn_add_layer(&n, conv_layer_alloc(8, 8, 64, BATCH_SIZE, 128, 3, 1, same));
+    nn_add_layer(&n, batchnorm_layer_4D_alloc(8, 8, 128, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_4D_alloc(8, 8, 128, BATCH_SIZE));
+    nn_add_layer(&n, conv_layer_alloc(8, 8, 128, BATCH_SIZE, 128, 3, 1, same));
+    nn_add_layer(&n, batchnorm_layer_4D_alloc(8, 8, 128, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_4D_alloc(8, 8, 128, BATCH_SIZE));
     nn_add_layer(&n, maxpool_layer_alloc(8, 8, 128, BATCH_SIZE, 2));
 #ifdef TRAIN
     nn_add_layer(&n, dropout_layer_4D_alloc(4, 4, 128, BATCH_SIZE, 0.25));
 #endif
-    nn_add_layer(&n, flatten_layer_alloc(4, 4, 128, BATCH_SIZE));
+    nn_add_layer(&n, reshape_layer_alloc(4, 4, 128, BATCH_SIZE, 2048, BATCH_SIZE, 1, 1));
     nn_add_layer(&n, dense_layer_alloc(2048, 128, BATCH_SIZE));
     nn_add_layer(&n, relu_layer_2D_alloc(128, BATCH_SIZE));
 #ifdef TRAIN
     nn_add_layer(&n, dropout_layer_2D_alloc(128, BATCH_SIZE, 0.25));
 #endif
     nn_add_layer(&n, dense_layer_alloc(128, 10, BATCH_SIZE));
-    nn_add_layer(&n, softmax_layer_alloc(10, BATCH_SIZE));
+    nn_add_layer(&n, softmax_layer_2D_alloc(10, BATCH_SIZE));
 
     char net_file[FILENAME_MAX];
     get_path(net_file, "net.bin");
@@ -75,100 +93,97 @@ int main(void)
     FILE *f = fopen(net_file, "rb");
     nn_load(n, f);
 
-    tens x;
-    x.type = TENS4D;
-    x.t4 = tens4D_alloc(32, 32, 3, BATCH_SIZE);
-
+    tens x = tens4D_alloc(32, 32, 3, BATCH_SIZE);
     tens y;
 
 #ifdef TRAIN
-    tens dy;
-    dy.type = MAT;
-    dy.m = mat_alloc(10, BATCH_SIZE);
-
+    tens dy = tens2D_alloc(10, BATCH_SIZE);
     tens dx;
 #endif
 
-    mat t = mat_alloc(10, BATCH_SIZE);
+    tens t = tens2D_alloc(10, BATCH_SIZE);
 
 #ifdef TRAIN
     for (int e = 0; e < EPOCHS; ++e) {
-    for (int i = 0; i < 5; ++i) {
-        f = fopen(files[i], "rb");
+        for (int i = 0; i < 5; ++i) {
+            f = fopen(files[i], "rb");
 
-	for (int b = 0; b < BATCHES; ++b) {
+	        for (int b = 0; b < BATCHES; ++b) {
+                tens_fill(t, 0.0f);
 
-        mat_fill(t, 0.0f);
-        for (int j = 0; j < BATCH_SIZE; ++j) {
-            int target;
-            if ((target = read_next_img(f, x.t4.tens3Ds[j])) == -1) {
-                exit(EXIT_FAILURE);
-            }
-            else {
-                mat_at(t, target, j) = 1.0f;
-            }
-        }
-
-        nn_forward(n, x, &y);	
-
-	for (int k = 0; k < 10; ++k) {
-		for (int l = 0; l < BATCH_SIZE; ++l) {
-            		mat_at(dy.m, k, l) = dcxe(mat_at(y.m, k, l), mat_at(t, k, l));
+                for (int j = 0; j < BATCH_SIZE; ++j) {
+                    int target;
+                    if ((target = read_next_img(f, x.tens3Ds[j])) == -1) {
+                        exit(EXIT_FAILURE);
+                    }
+                    else {
+                        tens2D_at(t, target, j) = 1.0f;
+                    }
                 }
+
+                nn_forward(n, x, &y);
+
+	            for (int k = 0; k < 10; ++k) {
+		            for (int l = 0; l < BATCH_SIZE; ++l) {
+            		    tens2D_at(dy, k, l) = dcxe(tens2D_at(y, k, l), tens2D_at(t, k, l));
+                    }
+                }
+
+                nn_backprop(n, dy, &dx, 1e-4);
+
+	            free(y.vals);
+	            tens4D_destroy(dx);
+
+	            printf("EPOCH %d FILE %d BATCH %d\n", e + 1, i + 1, b + 1);
+	        }
         }
-
-        nn_backprop(n, dy, &dx, 1e-4);
-
-	free(y.m.vals);
-	tens4D_destroy(dx.t4);
-
-	printf("EPOCH %d FILE %d BATCH %d\n", e + 1, i + 1, b + 1);
-	}
-    }
     }
 #endif
 #ifdef SHOWCASE
     int correct = 0;
     f = fopen(test_file, "rb");
+
     for (int i = 0; i < BATCHES; ++i) {
-    mat_fill(t, 0.0f);
-    for (int j = 0; j < BATCH_SIZE; ++j) {
-	int target;
-	if ((target = read_next_img(f, x.t4.tens3Ds[j])) == -1) {
-		exit(EXIT_FAILURE);
-        }
-	else {
-		mat_at(t, target, j) = 1.0f;
-        }
-    }
+        tens_fill(t, 0.0f);
 
-    nn_forward(n, x, &y);
+        for (int j = 0; j < BATCH_SIZE; ++j) {
+	        int target;
+	        if ((target = read_next_img(f, x, j)) == -1) {
+		        exit(EXIT_FAILURE);
+            }
+	        else {
+		        tens2D_at(t, target, j) = 1.0f;
+            }
+        }
 
-    for (int j = 0; j < BATCH_SIZE; ++j) {
-	    float max = -FLT_MAX;
+        nn_forward(n, x, &y);
+
+        for (int j = 0; j < BATCH_SIZE; ++j) {
+	        float max = -FLT_MAX;
     	    int index = 0;
-	    for (int k = 0; k < 10; ++k) {
-		    if (mat_at(y.m, k, j) > max) {
-			    max = mat_at(y.m, k, j);
-			    index = k;
-		    }
-	    }
 
-	    if (mat_at(t, index, j) == 1.0f) {
-		    ++correct;
-	    }
-    }
+            for (int k = 0; k < 10; ++k) {
+		        if (tens2D_at(y, k, j) > max) {
+			        max = tens2D_at(y, k, j);
+			        index = k;
+		        }
+	        }
 
-    free(y.m.vals);
+	        if (tens2D_at(t, index, j) == 1.0f) {
+		        ++correct;
+	        }
+        }
+
+        tens_destroy(y);
     }
 
     printf("%f\n", correct / (10 * 1000.0f));
 #endif
 
-    tens4D_destroy(x.t4);
+    tens_destroy(x);
 
 #ifdef TRAIN
-    free(dy.m.vals);
+    tens_destroy(dy);
 
     f = fopen(net_file, "wb");
     nn_save(n, f);

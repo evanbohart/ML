@@ -75,8 +75,6 @@ void dense_backprop(layer l, tens dy, tens *dx, float rate)
 
     tens_dot(dl->dw, dy, dl->x_T);
 
-    tens_fill(dl->db, 0);
-
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < dl->y_size; ++i) {
         float sum = 0.0f;
@@ -118,7 +116,6 @@ void dense_init(layer l)
     dense_layer *dl = (dense_layer *)l.data;
 
     tens_normal(dl->w, 0, sqrt(2.0 / dl->x_size));
-
     tens_fill(dl->b, 0);
 }
 

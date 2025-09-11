@@ -288,37 +288,15 @@ void tens_func(tens dest, tens t, func f)
 	}
 }
 
-void tens_pad(tens dest, tens t, padding_t padding)
+void tens_pad(tens dest, tens t)
 {
-    assert(dest.rows == t.rows + padding[TOP] + padding[BOTTOM]);
-    assert(dest.cols == t.cols + padding[LEFT] + padding[RIGHT]);
+    assert(dest.rows >= t.rows);
+    assert(dest.cols >= t.cols);
     assert(dest.depth == t.depth);
     assert(dest.batches == t.batches);
 
-    #pragma omp parallel for collapse(2) schedule(static)
-    for (int i = 0; i < dest.batches; ++i) {
-        for (int j = 0; j < dest.depth; ++j) {
-            for (int k = 0; k < dest.rows; ++k) {
-                for (int l = 0; l < dest.cols; ++l) {
-                    tens4D_at(dest, k, l, j, i) = 0.0f;
-
-                    if (k >= padding[TOP] && k < (t.rows + padding[TOP]) &&
-                        l >= padding[LEFT] && l < (t.cols + padding[LEFT])) {
-                            tens4D_at(dest, k, l, j, i) = tens4D_at(t, k - padding[TOP], l - padding[LEFT], j, i);
-                    }
-                }
-            }
-        }
-    }
-}
-
-void tens_convolve(tens dest, tens t, tens filter)
-{
-    assert(dest.rows == t.rows - filter.rows + 1);
-    assert(dest.cols == t.cols - filter.cols + 1);
-    assert(dest.depth == filter.batches);
-    assert(dest.batches == t.batches);
-    assert(t.depth == filter.depth);
+    int top_padding = (dest.rows - t.rows) / 2;
+    int left_padding = (dest.cols - t.cols) / 2;
 
     #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < dest.batches; ++i) {
@@ -327,14 +305,9 @@ void tens_convolve(tens dest, tens t, tens filter)
                 for (int l = 0; l < dest.cols; ++l) {
                     tens4D_at(dest, k, l, j, i) = 0.0f;
 
-                    for (int m = 0; m < filter.depth; ++m) {
-                        for (int n = 0; n < filter.rows; ++n) {
-                            for (int o = 0; o < filter.cols; ++o) {
-                                float t_val = tens4D_at(t, k + n, l + o, m, i);
-                                float filter_val = tens4D_at(filter, n, o, m, j);
-                                tens4D_at(dest, k, l, j, i) += t_val * filter_val;
-                            }
-                        }
+                    if (k >= top_padding && k < (t.rows + top_padding) &&
+                        l >= left_padding && l < (t.cols + left_padding)) {
+                            tens4D_at(dest, k, l, j, i) = tens4D_at(t, k - top_padding, l - left_padding, j, i);
                     }
                 }
             }

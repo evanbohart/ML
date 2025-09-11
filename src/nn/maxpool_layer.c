@@ -51,7 +51,7 @@ void maxpool_forward(layer l, tens x, tens *y)
 
     tens_fill(ml->mask, 0.0f);
 
-    #pragma omp parallel for collapse(4) schedule(static)
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < ml->x_batches; ++i) {
         for (int j = 0; j < ml->x_depth; ++j) {
             for (int k = 0; k < ml->y_rows; ++k) {
@@ -98,7 +98,7 @@ void maxpool_backprop(layer l, tens dy, tens *dx, float rate)
     *dx = tens4D_alloc(ml->x_rows, ml->x_cols,
                        ml->x_depth, ml->x_batches);
 
-    #pragma omp parallel for collapse(6) schedule(static)
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < ml->x_batches; ++i) {
         for (int j = 0; j < ml->x_depth; ++j) {
             for (int k = 0; k < ml->y_rows; ++k) {

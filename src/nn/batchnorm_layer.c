@@ -47,9 +47,12 @@ layer batchnorm_layer_4D_alloc(int x_rows, int x_cols,
 
     bl->gamma = tens2D_alloc(x_depth, 1);
     bl->beta = tens2D_alloc(x_depth, 1);
-    bl->var_cache = tens2D_alloc(x_depth, 1);
 
+    bl->var_cache = tens2D_alloc(x_depth, 1);
     bl->z_cache = tens4D_alloc(x_rows, x_cols, x_depth, batch_size);
+
+    bl->dgamma = tens2D_alloc(bl->x_depth, 1);
+    bl->dbeta = tens2D_alloc(bl->x_depth, 1);
 
     layer l;
 
@@ -157,31 +160,26 @@ void batchnorm_4D_backprop(layer l, tens dy, tens *dx, float rate)
     assert(dy.batches == bl->x_batches);
 
     *dx = tens4D_alloc(bl->x_rows, bl->x_cols, bl->x_depth, bl->x_batches);
-
-    tens sum_dy = tens2D_alloc(bl->x_depth, 1);
-    tens_fill(sum_dy, 0.0f);
-
-    tens sum_dy_z = tens2D_alloc(bl->x_depth, 1);
-    tens_fill(sum_dy_z, 0.0f);
-
-    tens dgamma = tens2D_alloc(bl->x_depth, 1);
-    tens_fill(dgamma, 0.0f);
-
-    tens dbeta = tens2D_alloc(bl->x_depth, 1);
-    tens_fill(dbeta, 0.0f);
-
+ 
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < bl->x_depth; ++i) {
+        float dgamma_sum = 0.0f;
+        float dbeta_sum = 0.0f;
+
         for (int j = 0; j < bl->x_batches; ++j) {
             for (int k = 0; k < bl->x_rows; ++k) {
                 for (int l = 0; l < bl->x_cols; ++l) {
+                    float dy_val = tens4D_at(dy, k, l, i, j);
                     float z_val = tens4D_at(bl->z_cache, k, l, i, j);
 
-                    tens2D_at(sum_dy, i, 0) += tens4D_at(dy, k, l, i, j);
-                    tens2D_at(sum_dy_z, i, 0) += tens4D_at(dy, k, l, i, j) * z_val;
+                    dgamma_sum += dy_val * z_val;
+                    dbeta_sum += dy_val;
                 }
             }
         }
+
+        tens2D_at(bl->dgamma, i, 0) = dgamma_sum;
+        tens2D_at(bl->dbeta, i, 0) = dbeta_sum;
     }
 
     int n = bl->x_rows * bl->x_cols * bl->x_batches;
@@ -193,8 +191,8 @@ void batchnorm_4D_backprop(layer l, tens dy, tens *dx, float rate)
                 for (int l = 0; l < bl->x_cols; ++l) {
                     float dy_val = tens4D_at(dy, k, l, i, j);
                     float z_val = tens4D_at(bl->z_cache, k, l, i, j);
-                    float sum_dy_val = tens2D_at(sum_dy, i, 0);
-                    float sum_dy_z_val = tens2D_at(sum_dy_z, i, 0);
+                    float dgamma_val = tens2D_at(bl->dgamma, i, 0);
+                    float dbeta_val = tens2D_at(bl->dbeta, i, 0);
  
                     float gamma = tens2D_at(bl->gamma, i, 0);
                     float var = tens2D_at(bl->var_cache, i, 0);
@@ -202,39 +200,19 @@ void batchnorm_4D_backprop(layer l, tens dy, tens *dx, float rate)
                     float stddev = sqrtf(var + eps);
 
                     tens4D_at(*dx, j, k, i, l) =
-                        (dy_val - sum_dy_val / n - z_val * sum_dy_z_val / n) * gamma / stddev;
+                        (dy_val - dbeta_val / n - z_val * dgamma_val / n) * gamma / stddev;
                 }
             }
         }
     }
 
-    #pragma omp parallel for schedule(static)
-    for (int i = 0; i < bl->x_depth; ++i) {
-        for (int j = 0; j < bl->x_batches; ++j) {
-            for (int k = 0; k < bl->x_rows; ++k) {
-                for (int l = 0; l < bl->x_cols; ++l) {
-                    float dy_val = tens4D_at(dy, k, l, i, j);
-                    float z = tens4D_at(bl->z_cache, k, l, i, j);
+    tens_scale(bl->dgamma, bl->dgamma, rate / bl->x_batches);
+    tens_func(bl->dgamma, bl->dgamma, clip);
+    tens_sub(bl->gamma, bl->gamma, bl->dgamma);
 
-                    tens2D_at(dgamma, i, 0) += dy_val * z;
-                    tens2D_at(dbeta, i, 0) += dy_val;
-                }
-            }
-        }
-    }
-
-    tens_scale(dgamma, dgamma, rate / bl->x_batches);
-    tens_func(dgamma, dgamma, clip);
-    tens_sub(bl->gamma, bl->gamma, dgamma);
-
-    tens_scale(dbeta, dbeta, rate / bl->x_batches);
-    tens_func(dbeta, dbeta, clip);
-    tens_sub(bl->beta, bl->beta, dbeta);
-
-    tens_destroy(sum_dy);
-    tens_destroy(sum_dy_z);
-    tens_destroy(dgamma);
-    tens_destroy(dbeta);
+    tens_scale(bl->dbeta, bl->dbeta, rate / bl->x_batches);
+    tens_func(bl->dbeta, bl->dbeta, clip);
+    tens_sub(bl->beta, bl->beta, bl->dbeta);
 }
 
 void batchnorm_destroy(layer l)
@@ -243,8 +221,12 @@ void batchnorm_destroy(layer l)
 
     tens_destroy(bl->gamma);
     tens_destroy(bl->beta);
+
     tens_destroy(bl->var_cache);
     tens_destroy(bl->z_cache);
+
+    tens_destroy(bl->dgamma);
+    tens_destroy(bl->dbeta);
 }
 
 void batchnorm_init(layer l)

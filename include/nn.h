@@ -23,10 +23,6 @@ float cxe(float y, float t);
 float dmse(float y, float t);
 float dcxe(float y, float t);
 
-typedef int padding_t[4];
-
-enum { TOP, BOTTOM, LEFT, RIGHT };
-
 typedef struct tens {
     int dims;
 	int rows;
@@ -75,8 +71,7 @@ void tens_diag(tens dest, tens t);
 void tens_scale(tens dest, tens t, float a);
 void tens_func(tens dest, tens t, func f);
 void tens_softmax(tens dest, tens t);
-void tens_pad(tens dest, tens t, padding_t padding);
-void tens_convolve(tens dest, tens t, tens filter);
+void tens_pad(tens dest, tens t);
 void tens_print(tens t);
 void tens_destroy(tens t);
 void tens_save(tens t, FILE *f);
@@ -126,10 +121,12 @@ typedef struct conv_layer {
     int y_rows;
     int y_cols;
     int convolutions;
-	int filter_size;
+	int w_size;
     int stride;
-    padding_t x_padding;
-    padding_t dy_padding;
+    int x_padded_rows;
+    int x_padded_cols;
+    int dy_padded_rows;
+    int dy_padded_cols;
 	tens w;
 	tens b;
     tens x_padded;
@@ -140,8 +137,8 @@ typedef struct conv_layer {
 } conv_layer;
 
 layer conv_layer_alloc(int x_rows, int x_cols, int x_depth,
-                       int x_batches, int filter_size, int convolutions,
-                       int stride, padding_t padding);
+                       int x_batches, int w_size, int convolutions,
+                       int stride, int padding[4]);
 void conv_forward(layer l, tens x, tens *y);
 void conv_backprop(layer l, tens dy, tens *dx, float rate);
 void conv_destroy(layer l);
@@ -301,6 +298,8 @@ typedef struct batchnorm_layer {
     tens beta;
     tens var_cache;
     tens z_cache;
+    tens dgamma;
+    tens dbeta;
 } batchnorm_layer;
 
 layer batchnorm_layer_2D_alloc(int x_size, int x_batches);
@@ -366,62 +365,6 @@ void attention_init(layer l);
 void attention_print(layer l);
 void attention_save(layer l, FILE *f);
 void attention_load(layer l, FILE *f);
-
-typedef struct block {
-    void *data;
-
-    void (*forward)(struct block b, tens x, tens *y);
-    void (*backprop)(struct block b, tens dy, tens *dx, float rate);
-    void (*destroy)(struct block b);
-
-    void (*init)(struct block b);
-    void (*print)(struct block b);
-    void (*save)(struct block b, FILE *f);
-    void (*load)(struct block b, FILE *f);
-} block;
-
-typedef struct res_block {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
-    int convolutions;
-    tens skip;
-    layer proj_layer;
-    layer *conv_layers;
-    layer *batchnorm_layers;
-    layer *relu_layers;
-} res_block;
-
-block res_block_alloc(int x_rows, int x_cols, int x_depth,
-                      int x_batches, int convolutions,
-                      int filter_size, int stride);
-void res_forward(block b, tens x, tens *y);
-void res_backprop(block b, tens dy, tens *dx, float rate);
-void res_destroy(block b);
-
-void res_init(block b);
-void res_print(block b);
-void res_save(block b, FILE *f);
-void res_load(block b, FILE *f);
-
-
-typedef struct encoder_block {
-    int seq_len;
-    int d_model;
-    int d_k;
-    int h_size;
-    int d_ff;
-    int x_batches;
-    void *attention_layers;
-    void *mlp_hidden_layers;
-    void *mlp_output_layers;
-} encoder_block;
-
-block encoder_block_alloc(int sub_layers, int seq_len, int d_model,
-                          int d_k, int d_ff, int x_batches);
-void encoder_forward(block eb, tens x, tens *y);
-void encoder_backprop(block eb, tens dy, tens *dx);
 
 typedef struct nn {
     int max_layers;

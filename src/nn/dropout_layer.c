@@ -105,12 +105,12 @@ void dropout_forward(layer l, tens x, tens *y)
 
     *y = tens4D_alloc(dl->x_rows, dl->x_cols, dl->x_depth, dl->x_batches);
 
-    #pragma omp parallel for collapse(4) schedule(static)
-    for (int i = 0; i < dl->x_rows; ++i) {
-        for (int j = 0; j < dl->x_cols; ++j) {
-            for (int k = 0; k < dl->x_depth; ++k) {
-                for (int l = 0; l < dl->x_batches; ++l) {
-                    tens4D_at(dl->mask, i, j, k, l) =
+    #pragma omp parallel for collapse(2) schedule(static)
+    for (int i = 0; i < dl->x_batches; ++i) {
+        for (int j = 0; j < dl->x_depth; ++j) {
+            for (int k = 0; k < dl->x_rows; ++k) {
+                for (int l = 0; l < dl->x_cols; ++l) {
+                    tens4D_at(dl->mask, k, l, j, i) =
                         rand_float(0.0f, 1.0f) > dl->rate ? 1.0f : 0.0f;
                 }
             }

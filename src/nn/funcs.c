@@ -37,9 +37,9 @@ float dmse(float y, float t) { return y - t; }
 
 float dcxe(float y, float t)
 {
-    float eps = 1e-12;
+    float eps = 1e-5;
 
-    return -t / y + eps;
+    return -t / (y + eps);
 }
 
 float clip(float x)

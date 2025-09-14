@@ -21,7 +21,7 @@ int read_next_img(FILE *f, tens x, int batch)
             for (int k = 0; k < 32; ++k) {
                 unsigned char val;
                 if (!fread(&val, 1, sizeof(val), f)) return -1;
-                tens4D_at(x, j, k, i, batch) = val / 255.0f;
+                tens_at(x, j, k, i, batch) = val / 255.0f;
             }
         }
     }
@@ -44,48 +44,48 @@ int main(void)
     char test_file[FILENAME_MAX];
     get_path(test_file, "cifar-10-batches-bin/test_batch.bin");
 
-    padding_t same = { 1, 1, 1, 1 };
+    int same[4] = { 1, 1, 1, 1 };
 
     nn n = nn_alloc(32);
 
-    nn_add_layer(&n, conv_layer_alloc(32, 32, 3, BATCH_SIZE, 32, 3, 1, same));
-    nn_add_layer(&n, batchnorm_layer_4D_alloc(32, 32, 32, BATCH_SIZE));
-    nn_add_layer(&n, relu_layer_4D_alloc(32, 32, 32, BATCH_SIZE));
-    nn_add_layer(&n, conv_layer_alloc(32, 32, 32, BATCH_SIZE, 32, 3, 1, same));
-    nn_add_layer(&n, batchnorm_layer_4D_alloc(32, 32, 32, BATCH_SIZE));
-    nn_add_layer(&n, relu_layer_4D_alloc(32, 32, 32, BATCH_SIZE));
-    nn_add_layer(&n, maxpool_layer_alloc(32, 32, 32, BATCH_SIZE, 2));
+    nn_add_layer(&n, conv_layer_alloc(32, 32, 3, BATCH_SIZE, 3, 3, 32, 1, same));
+    nn_add_layer(&n, batchnorm_layer_alloc(32, 32, 32, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_alloc(32, 32, 32, BATCH_SIZE));
+    nn_add_layer(&n, conv_layer_alloc(32, 32, 32, BATCH_SIZE, 3, 3, 32, 1, same));
+    nn_add_layer(&n, batchnorm_layer_alloc(32, 32, 32, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_alloc(32, 32, 32, BATCH_SIZE));
+    nn_add_layer(&n, maxpool_layer_alloc(32, 32, 32, BATCH_SIZE, 2, 2));
 #ifdef TRAIN
-    nn_add_layer(&n, dropout_layer_4D_alloc(16, 16, 32, BATCH_SIZE, 0.25));
+    nn_add_layer(&n, dropout_layer_alloc(16, 16, 32, BATCH_SIZE, 0.25));
 #endif
-    nn_add_layer(&n, conv_layer_alloc(16, 16, 32, BATCH_SIZE, 64, 3, 1, same));
-    nn_add_layer(&n, batchnorm_layer_4D_alloc(16, 16, 64, BATCH_SIZE));
-    nn_add_layer(&n, relu_layer_4D_alloc(16, 16, 64, BATCH_SIZE));
-    nn_add_layer(&n, conv_layer_alloc(16, 16, 64, BATCH_SIZE, 64, 3, 1, same));
-    nn_add_layer(&n, batchnorm_layer_4D_alloc(16, 16, 64, BATCH_SIZE));
-    nn_add_layer(&n, relu_layer_4D_alloc(16, 16, 64, BATCH_SIZE));
-    nn_add_layer(&n, maxpool_layer_alloc(16, 16, 64, BATCH_SIZE, 2));
+    nn_add_layer(&n, conv_layer_alloc(16, 16, 32, BATCH_SIZE, 3, 3, 64, 1, same));
+    nn_add_layer(&n, batchnorm_layer_alloc(16, 16, 64, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_alloc(16, 16, 64, BATCH_SIZE));
+    nn_add_layer(&n, conv_layer_alloc(16, 16, 64, BATCH_SIZE, 3, 3, 64, 1, same));
+    nn_add_layer(&n, batchnorm_layer_alloc(16, 16, 64, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_alloc(16, 16, 64, BATCH_SIZE));
+    nn_add_layer(&n, maxpool_layer_alloc(16, 16, 64, BATCH_SIZE, 2, 2));
 #ifdef TRAIN
-    nn_add_layer(&n, dropout_layer_4D_alloc(8, 8, 64, BATCH_SIZE, 0.25));
+    nn_add_layer(&n, dropout_layer_alloc(8, 8, 64, BATCH_SIZE, 0.25));
 #endif
-    nn_add_layer(&n, conv_layer_alloc(8, 8, 64, BATCH_SIZE, 128, 3, 1, same));
-    nn_add_layer(&n, batchnorm_layer_4D_alloc(8, 8, 128, BATCH_SIZE));
-    nn_add_layer(&n, relu_layer_4D_alloc(8, 8, 128, BATCH_SIZE));
-    nn_add_layer(&n, conv_layer_alloc(8, 8, 128, BATCH_SIZE, 128, 3, 1, same));
-    nn_add_layer(&n, batchnorm_layer_4D_alloc(8, 8, 128, BATCH_SIZE));
-    nn_add_layer(&n, relu_layer_4D_alloc(8, 8, 128, BATCH_SIZE));
-    nn_add_layer(&n, maxpool_layer_alloc(8, 8, 128, BATCH_SIZE, 2));
+    nn_add_layer(&n, conv_layer_alloc(8, 8, 64, BATCH_SIZE, 3, 3, 128, 1, same));
+    nn_add_layer(&n, batchnorm_layer_alloc(8, 8, 128, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_alloc(8, 8, 128, BATCH_SIZE));
+    nn_add_layer(&n, conv_layer_alloc(8, 8, 128, BATCH_SIZE, 3, 3, 128, 1, same));
+    nn_add_layer(&n, batchnorm_layer_alloc(8, 8, 128, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_alloc(8, 8, 128, BATCH_SIZE));
+    nn_add_layer(&n, maxpool_layer_alloc(8, 8, 128, BATCH_SIZE, 2, 2));
 #ifdef TRAIN
-    nn_add_layer(&n, dropout_layer_4D_alloc(4, 4, 128, BATCH_SIZE, 0.25));
+    nn_add_layer(&n, dropout_layer_alloc(4, 4, 128, BATCH_SIZE, 0.25));
 #endif
     nn_add_layer(&n, reshape_layer_alloc(4, 4, 128, BATCH_SIZE, 2048, BATCH_SIZE, 1, 1));
     nn_add_layer(&n, dense_layer_alloc(2048, 128, BATCH_SIZE));
-    nn_add_layer(&n, relu_layer_2D_alloc(128, BATCH_SIZE));
+    nn_add_layer(&n, relu_layer_alloc(128, 1, 1, BATCH_SIZE));
 #ifdef TRAIN
-    nn_add_layer(&n, dropout_layer_2D_alloc(128, BATCH_SIZE, 0.25));
+    nn_add_layer(&n, dropout_layer_alloc(128, 1, 1, BATCH_SIZE, 0.25));
 #endif
     nn_add_layer(&n, dense_layer_alloc(128, 10, BATCH_SIZE));
-    nn_add_layer(&n, softmax_layer_2D_alloc(10, BATCH_SIZE));
+    nn_add_layer(&n, softmax_layer_alloc(10, 1, 1, BATCH_SIZE));
 
     char net_file[FILENAME_MAX];
     get_path(net_file, "net.bin");
@@ -93,15 +93,15 @@ int main(void)
     FILE *f = fopen(net_file, "rb");
     nn_load(n, f);
 
-    tens x = tens4D_alloc(32, 32, 3, BATCH_SIZE);
+    tens x = tens_alloc(32, 32, 3, BATCH_SIZE);
     tens y;
 
 #ifdef TRAIN
-    tens dy = tens2D_alloc(10, BATCH_SIZE);
+    tens dy = tens_alloc(10, 1, 1, BATCH_SIZE);
     tens dx;
 #endif
 
-    tens t = tens2D_alloc(10, BATCH_SIZE);
+    tens t = tens_alloc(10, 1, 1, BATCH_SIZE);
 
 #ifdef TRAIN
     for (int e = 0; e < EPOCHS; ++e) {
@@ -113,11 +113,11 @@ int main(void)
 
                 for (int j = 0; j < BATCH_SIZE; ++j) {
                     int target;
-                    if ((target = read_next_img(f, x.tens3Ds[j])) == -1) {
+                    if ((target = read_next_img(f, x, j)) == -1) {
                         exit(EXIT_FAILURE);
                     }
                     else {
-                        tens2D_at(t, target, j) = 1.0f;
+                        tens_at(t, target, 0, 0, j) = 1.0f;
                     }
                 }
 
@@ -125,14 +125,14 @@ int main(void)
 
 	            for (int k = 0; k < 10; ++k) {
 		            for (int l = 0; l < BATCH_SIZE; ++l) {
-            		    tens2D_at(dy, k, l) = dcxe(tens2D_at(y, k, l), tens2D_at(t, k, l));
+            		    tens_at(dy, k, 0, 0, l) = dcxe(tens_at(y, k, l), tens_at(t, k, 0, 0, l));
                     }
                 }
 
                 nn_backprop(n, dy, &dx, 1e-4);
 
 	            free(y.vals);
-	            tens4D_destroy(dx);
+	            tens_destroy(dx);
 
 	            printf("EPOCH %d FILE %d BATCH %d\n", e + 1, i + 1, b + 1);
 	        }
@@ -152,7 +152,7 @@ int main(void)
 		        exit(EXIT_FAILURE);
             }
 	        else {
-		        tens2D_at(t, target, j) = 1.0f;
+		        tens_at(t, target, 0, 0, j) = 1.0f;
             }
         }
 
@@ -163,13 +163,13 @@ int main(void)
     	    int index = 0;
 
             for (int k = 0; k < 10; ++k) {
-		        if (tens2D_at(y, k, j) > max) {
-			        max = tens2D_at(y, k, j);
+		        if (tens_at(y, k, 0, 0, j) > max) {
+			        max = tens_at(y, k, 0, 0, j);
 			        index = k;
 		        }
 	        }
 
-	        if (tens2D_at(t, index, j) == 1.0f) {
+	        if (tens_at(t, index, 0, 0, j) == 1.0f) {
 		        ++correct;
 	        }
         }

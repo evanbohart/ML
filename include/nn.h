@@ -23,39 +23,22 @@ float cxe(float y, float t);
 float dmse(float y, float t);
 float dcxe(float y, float t);
 
+enum { R, C, D, B };
+
 typedef struct tens {
-    int dims;
-	int rows;
-	int cols;
-    int depth;
-    int batches;
+    int dims[4];
 	float *vals;
 } tens;
 
-#define tens2D_at(t, r, c) \
+#define tens_at(t, r, c, d, b) \
     ((t).vals[ \
-        ((r) * (t).cols) + \
+        ((b) * (t).dims[D] * (t).dims[R] * (t).dims[C]) + \
+        ((d) * (t).dims[R] * (t).dims[C]) + \
+        ((r) * (t).dims[C]) + \
         (c) \
     ])
 
-#define tens3D_at(t, r, c, d) \
-    ((t).vals[ \
-        ((d) * (t).rows * (t).cols) + \
-        ((r) * (t).cols) + \
-        (c) \
-    ])
-
-#define tens4D_at(t, r, c, d, b) \
-    ((t).vals[ \
-        ((b) * (t).depth * (t).rows * (t).cols) + \
-        ((d) * (t).rows * (t).cols) + \
-        ((r) * (t).cols) + \
-        (c) \
-    ])
-
-tens tens2D_alloc(int rows, int cols);
-tens tens3D_alloc(int rows, int cols, int depth);
-tens tens4D_alloc(int rows, int cols, int depth, int batches);
+tens tens_alloc(int r, int c, int d, int b);
 
 void tens_rand(tens t, float min, float max);
 void tens_normal(tens t, float mean, float stddev);
@@ -65,13 +48,12 @@ void tens_add(tens dest, tens t1, tens t2);
 void tens_sub(tens dest, tens t1, tens t2);
 void tens_dot(tens dest, tens t1, tens t2);
 void tens_had(tens dest, tens t1, tens t2);
-void tens_trans(tens dest, tens t);
-void tens_180(tens dest, tens t);
-void tens_diag(tens dest, tens t);
+void tens_trans(tens dest, tens t, int perm[4]);
+void tens_180(tens dest, tens t, int flip[4]);
 void tens_scale(tens dest, tens t, float a);
 void tens_func(tens dest, tens t, func f);
 void tens_softmax(tens dest, tens t);
-void tens_pad(tens dest, tens t);
+void tens_pad(tens dest, tens t, int padding[4]);
 void tens_print(tens t);
 void tens_destroy(tens t);
 void tens_save(tens t, FILE *f);
@@ -91,18 +73,22 @@ typedef struct layer {
 } layer;
 
 typedef struct {
-    int x_size;
-    int y_size;
-    int x_batches;
+    int x_r;
+    int y_r;
+    int x_b;
 	tens w;
 	tens b;
-    tens x_T;
+    tens x_reshaped;
+    tens dot;
+    tens x_reshaped_T;
     tens w_T;
+    tens dy_reshaped;
+    tens dx_reshaped;
     tens dw;
     tens db;
 } dense_layer;
 
-layer dense_layer_alloc(int x_size, int y_size, int x_batches);
+layer dense_layer_alloc(int x_r, int y_r, int x_b);
 
 void dense_forward(layer l, tens x, tens *y);
 void dense_backprop(layer l, tens dy, tens *dx, float rate);
@@ -113,20 +99,21 @@ void dense_print(layer l);
 void dense_save(layer l, FILE *f);
 void dense_load(layer l, FILE *f);
 
+enum { TOP, BOTTOM, LEFT, RIGHT };
+
 typedef struct conv_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
-    int y_rows;
-    int y_cols;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
+    int y_r;
+    int y_c;
+	int w_r;
+    int w_c;
     int convolutions;
-	int w_size;
     int stride;
-    int x_padded_rows;
-    int x_padded_cols;
-    int dy_padded_rows;
-    int dy_padded_cols;
+    int x_padding[4];
+    int dy_padding[4];
 	tens w;
 	tens b;
     tens x_padded;
@@ -136,9 +123,9 @@ typedef struct conv_layer {
     tens db;
 } conv_layer;
 
-layer conv_layer_alloc(int x_rows, int x_cols, int x_depth,
-                       int x_batches, int w_size, int convolutions,
-                       int stride, int padding[4]);
+layer conv_layer_alloc(int x_r, int x_c, int x_d,
+                       int x_b, int w_r, int w_c,
+                       int convolutions, int stride, int padding[4]);
 void conv_forward(layer l, tens x, tens *y);
 void conv_backprop(layer l, tens dy, tens *dx, float rate);
 void conv_destroy(layer l);
@@ -149,140 +136,128 @@ void conv_save(layer l, FILE *f);
 void conv_load(layer l, FILE *f);
 
 typedef struct sig_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
     tens x_cache;
 } sig_layer;
 
-layer sig_layer_2D_alloc(int x_size, int x_batches);
-layer sig_layer_3D_alloc(int x_rows, int x_cols, int x_batches);
-layer sig_layer_4D_alloc(int x_rows, int x_cols,
-                         int x_depth, int x_batches);
+layer sig_layer_alloc(int x_r, int x_c,
+                      int x_d, int x_b);
 
 void sig_forward(layer l, tens x, tens *y);
 void sig_backprop(layer l, tens dy, tens *dx, float rate);
 void sig_destroy(layer l);
 
 typedef struct tanh_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
     tens x_cache;
 } tanh_layer;
 
-layer tanh_layer_2D_alloc(int x_size, int x_batches);
-layer tanh_layer_3D_alloc(int x_rows, int x_cols, int x_batches);
-layer tanh_layer_4D_alloc(int x_rows, int x_cols,
-                          int x_depth, int x_batches);
+layer tanh_layer_alloc(int x_r, int x_c,
+                       int x_d, int x_b);
 
 void tanh_forward(layer l, tens x, tens *y);
 void tanh_backprop(layer l, tens dy, tens *dx, float rate);
 void tanh_destroy(layer l);
 
 typedef struct relu_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
     tens x_cache;
 } relu_layer;
 
-layer relu_layer_2D_alloc(int x_size, int x_batches);
-layer relu_layer_3D_alloc(int x_rows, int x_cols, int x_batches);
-layer relu_layer_4D_alloc(int x_rows, int x_cols,
-                          int x_depth, int x_batches);
+layer relu_layer_alloc(int x_r, int x_c,
+                       int x_d, int x_b);
 
 void relu_forward(layer l, tens x, tens *y);
 void relu_backprop(layer l, tens dy, tens *dx, float rate);
 void relu_destroy(layer l);
 
 typedef struct gelu_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
     tens x_cache;
 } gelu_layer;
 
-layer gelu_layer_2D_alloc(int x_size, int x_batches);
-layer gelu_layer_3D_alloc(int x_rows, int x_cols, int x_batches);
-layer gelu_layer_4D_alloc(int x_rows, int x_cols,
-                          int x_depth, int x_batches);
+layer gelu_layer_alloc(int x_r, int x_c,
+                       int x_d, int x_b);
 
 void gelu_forward(layer l, tens x, tens *y);
 void gelu_backprop(layer l, tens dy, tens *dx, float rate);
 void gelu_destroy(layer l);
 
 typedef struct softmax_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
     tens y_cache;
 } softmax_layer;
 
-layer softmax_layer_2D_alloc(int x_size, int x_batches);
-layer softmax_layer_3D_alloc(int x_rows, int x_cols, int x_batches);
-layer softmax_layer_4D_alloc(int x_rows, int x_cols,
-                             int x_depth, int x_batches);
+layer softmax_layer_alloc(int x_r, int x_c,
+                          int x_d, int x_b);
 
 void softmax_forward(layer l, tens x, tens *y);
 void softmax_backprop(layer l, tens dy, tens *dx, float rate);
 void softmax_destroy(layer l);
 
 typedef struct maxpool_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
-    int y_rows;
-    int y_cols;
-    int pooling_size;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
+    int pooling_r;
+    int pooling_c;
+    int y_r;
+    int y_c;
     tens mask;
 } maxpool_layer;
 
-layer maxpool_layer_alloc(int x_rows, int x_cols, int x_depth,
-                          int x_batches, int pooling_size);
+layer maxpool_layer_alloc(int x_r, int x_c, int x_d,
+                          int x_b, int pooling_r, int pooling_c);
 void maxpool_forward(layer l, tens x, tens *y);
 void maxpool_backprop(layer l, tens dy, tens *dx, float rate);
 void maxpool_destroy(layer l);
 
 typedef struct reshape_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
-    int y_rows;
-    int y_cols;
-    int y_depth;
-    int y_batches;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
+    int y_r;
+    int y_c;
+    int y_d;
+    int y_b;
 } reshape_layer;
 
-layer reshape_layer_alloc(int x_rows, int x_cols, int x_depth,
-                          int x_batches, int y_rows, int y_cols,
-                          int y_depth, int y_batches);
+layer reshape_layer_alloc(int x_r, int x_c, int x_d,
+                          int x_b, int y_r, int y_c,
+                          int y_d, int y_b);
 
 void reshape_forward(layer l, tens x, tens *y);
 void reshape_backprop(layer l, tens dy, tens *dx, float rate);
 void reshape_destroy(layer l);
 
 typedef struct dropout_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
     float rate;
     tens mask;
 } dropout_layer;
 
-layer dropout_layer_2D_alloc(int x_size, int x_batches, float rate);
-layer dropout_layer_3D_alloc(int x_rows, int x_cols,
-                             int x_batches, float rate);
-layer dropout_layer_4D_alloc(int x_rows, int x_cols,
-                             int x_depth, int x_batches, float rate);
+layer dropout_layer_alloc(int x_r, int x_c,
+                          int x_d, int x_b, float rate);
 
 
 void dropout_forward(layer l, tens x, tens *y);
@@ -290,10 +265,10 @@ void dropout_backprop(layer l, tens dy, tens *dx, float rate);
 void dropout_destroy(layer l);
 
 typedef struct batchnorm_layer {
-    int x_rows;
-    int x_cols;
-    int x_depth;
-    int x_batches;
+    int x_r;
+    int x_c;
+    int x_d;
+    int x_b;
     tens gamma;
     tens beta;
     tens var_cache;
@@ -302,16 +277,11 @@ typedef struct batchnorm_layer {
     tens dbeta;
 } batchnorm_layer;
 
-layer batchnorm_layer_2D_alloc(int x_size, int x_batches);
-layer batchnorm_layer_4D_alloc(int x_rows, int x_cols,
-                               int x_depth, int x_batches);
+layer batchnorm_layer_alloc(int x_r, int x_c,
+                            int x_d, int x_b);
 
-void batchnorm_2D_forward(layer l, tens x, tens *y);
-void batchnorm_2D_backprop(layer l, tens dy, tens *dx, float rate);
-
-void batchnorm_4D_forward(layer l, tens x, tens *y);
-void batchnorm_4D_backprop(layer l, tens dy, tens *dx, float rate);
-
+void batchnorm_forward(layer l, tens x, tens *y);
+void batchnorm_backprop(layer l, tens dy, tens *dx, float rate);
 void batchnorm_destroy(layer l);
 
 void batchnorm_init(layer l);
@@ -320,15 +290,15 @@ void batchnorm_save(layer l, FILE *f);
 void batchnorm_load(layer l, FILE *f);
 
 typedef struct embedding_layer {
-    int x_size;
-    int x_batches;
-    int e_size;
-    int v_size;
+    int x_r;
+    int x_b;
+    int e_R;
+    int v_R;
     tens e;
     tens p;
 } embedding_layer;
 
-layer embedding_layer_alloc(int x_size, int x_batches, int e_size, int v_size);
+layer embedding_layer_alloc(int x_r, int x_b, int e_R, int v_R);
 
 void embedding_forward(layer l, tens x, tens *y);
 void embedding_backprop(layer l, tens dy, tens *dx, float rate);
@@ -343,8 +313,8 @@ typedef struct attention_layer {
     int seq_len;
     int d_model;
     int d_k;
-    int h_size;
-    int x_batches;
+    int h_R;
+    int x_b;
     tens w_q;
     tens w_k;
     tens w_v;
@@ -355,7 +325,7 @@ typedef struct attention_layer {
 } attention_layer;
 
 layer attention_layer_alloc(int seq_len, int d_model,
-                            int d_k, int x_batches);
+                            int d_k, int x_b);
 
 void attention_forward(layer l, tens x, tens *y);
 void attention_backprop(layer l, tens dy, tens *dx, float rate);

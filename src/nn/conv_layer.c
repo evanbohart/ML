@@ -5,44 +5,51 @@
 #include <omp.h>
 #include "nn.h"
 
-layer conv_layer_alloc(int x_rows, int x_cols, int x_depth,
-                       int batch_size, int convolutions,
-                       int w_size, int stride, int x_padding[4])
+layer conv_layer_alloc(int x_r, int x_c, int x_d,
+                       int x_b, int w_r, int w_c,
+                       int convolutions, int stride, int x_padding[4])
 {
     conv_layer *cl = malloc(sizeof(conv_layer));
 
-    int y_rows = (x_rows + x_padding[0] + x_padding[1] -
-                  w_size) / stride + 1;
-    int y_cols = (x_cols + x_padding[2] + x_padding[3] -
-                  w_size) / stride + 1;
+    int y_r = (x_r + x_padding[0] + x_padding[1] -
+               w_r) / stride + 1;
+    int y_c = (x_c + x_padding[2] + x_padding[3] -
+               w_c) / stride + 1;
 
-    cl->x_rows = x_rows;
-    cl->x_cols = x_cols;
-    cl->x_depth = x_depth;
-    cl->x_batches = batch_size;
+    cl->x_r = x_r;
+    cl->x_c = x_c;
+    cl->x_d = x_d;
+    cl->x_b = x_b;
 
-    cl->y_rows = y_rows;
-    cl->y_cols = y_cols;
+    cl->y_r = y_r;
+    cl->y_c = y_c;
     cl->convolutions = convolutions;
 
-    cl->w_size = w_size;
+    cl->w_r = w_r;
+    cl->w_c = w_c;
     cl->stride = stride;
 
-    cl->x_padded_rows = x_rows + x_padding[0] + x_padding[1];
-    cl->x_padded_cols = x_cols + x_padding[2] + x_padding[3];
+    memcpy(cl->x_padding, x_padding, sizeof(x_padding));
 
-    cl->dy_padded_rows = y_rows + 2 * w_size - 2 - x_padding[0] - x_padding[1];
-    cl->dy_padded_cols = y_cols + 2 * w_size - 2 - x_padding[2] - x_padding[3];
+    int dy_padding[4] = { w_r - 1 - x_padding[TOP],
+                          w_r - 1 - x_padding[BOTTOM],
+                          w_c - 1 - x_padding[LEFT],
+                          w_c - 1 - x_padding[RIGHT] };
+    memcpy(cl->dy_padding, dy_padding, sizeof(dy_padding));
 
-    cl->w = tens4D_alloc(w_size, w_size, x_depth, convolutions);
-    cl->b = tens3D_alloc(y_rows, y_cols, convolutions);
+    cl->w = tens_alloc(w_r, w_c, x_d, convolutions);
+    cl->b = tens_alloc(y_r, y_c, convolutions, 1);
 
-    cl->x_padded = tens4D_alloc(cl->x_padded_rows, cl->x_padded_cols, x_depth, batch_size);
-    cl->dy_padded = tens4D_alloc(cl->dy_padded_rows, cl->dy_padded_cols, convolutions, batch_size);
-    cl->w_180 = tens4D_alloc(w_size, w_size, x_depth, convolutions);
+    cl->x_padded = tens_alloc(x_r + x_padding[TOP] + x_padding[BOTTOM],
+                              x_c + x_padding[LEFT] + x_padding[RIGHT],
+                              x_d, x_b);
+    cl->dy_padded = tens_alloc(y_r + dy_padding[TOP] + dy_padding[BOTTOM],
+                               y_c + dy_padding[LEFT] + dy_padding[RIGHT],
+                               convolutions, x_b);
+    cl->w_180 = tens_alloc(w_r, w_r, x_d, convolutions);
 
-    cl->dw = tens4D_alloc(w_size, w_size, x_depth, convolutions);
-    cl->db = tens3D_alloc(y_rows, y_cols, convolutions);
+    cl->dw = tens_alloc(w_r, w_r, x_d, convolutions);
+    cl->db = tens_alloc(y_r, y_c, convolutions, 1);
 
     layer l;
 
@@ -64,44 +71,44 @@ void conv_forward(layer l, tens x, tens *y)
 {
     conv_layer *cl = (conv_layer *)l.data;
 
-    assert(x.rows == cl->x_rows);
-    assert(x.cols == cl->x_cols);
-    assert(x.depth == cl->x_depth);
-    assert(x.batches == cl->x_batches);
+    assert(x.dims[R] == cl->x_r);
+    assert(x.dims[C] == cl->x_c);
+    assert(x.dims[D] == cl->x_d);
+    assert(x.dims[B] == cl->x_b);
 
-    *y = tens4D_alloc(cl->y_rows, cl->y_cols, cl->convolutions, cl->x_batches);
+    *y = tens_alloc(cl->y_r, cl->y_c, cl->convolutions, cl->x_b);
 
-    tens_pad(cl->x_padded, x);
+    tens_pad(cl->x_padded, x, cl->x_padding);
 
     #pragma omp parallel for collapse(2) schedule(static)
-    for (int i = 0; i < cl->x_batches; ++i) {
+    for (int i = 0; i < cl->x_b; ++i) {
         for (int j = 0; j < cl->convolutions; ++j) {
-            for (int k = 0; k < cl->y_rows; ++k) {
-                for (int l = 0; l < cl->y_cols; ++l) {
+            for (int k = 0; k < cl->y_r; ++k) {
+                for (int l = 0; l < cl->y_c; ++l) {
                     float sum = 0.0f;
 
-                    for (int m = 0; m < cl->x_depth; ++m) {
-                        for (int n = 0; n < cl->w_size; ++n) {
-                            for (int o = 0; o < cl->w_size; ++o) {
-                                float x_val = tens4D_at(cl->x_padded, k + n, l + o, m, i);
-                                float w_val = tens4D_at(cl->w, n, o, m, j);
+                    for (int m = 0; m < cl->x_d; ++m) {
+                        for (int n = 0; n < cl->w_r; ++n) {
+                            for (int o = 0; o < cl->w_c; ++o) {
+                                float x_val = tens_at(cl->x_padded, k + n, l + o, m, i);
+                                float w_val = tens_at(cl->w, n, o, m, j);
                                 sum += x_val * w_val;
                             }
                         }
                     }
 
-                    tens4D_at(*y, k, l, j, i) = sum;
+                    tens_at(*y, k, l, j, i) = sum;
                 }
             }
         }
     }
 
     #pragma omp parallel for collapse(2) schedule(static)
-    for (int i = 0; i < cl->x_batches; ++i) {
+    for (int i = 0; i < cl->x_b; ++i) {
         for (int j = 0; j < cl->convolutions; ++j) {
-            for (int k = 0; k < cl->y_rows; ++k) {
-                for (int l = 0; l < cl->y_cols; ++l) {
-                    tens4D_at(*y, k, l, j, i) += tens3D_at(cl->b, k, l, j);
+            for (int k = 0; k < cl->y_r; ++k) {
+                for (int l = 0; l < cl->y_c; ++l) {
+                    tens_at(*y, k, l, j, i) += tens_at(cl->b, k, l, j, 0);
                 }
             }
         }
@@ -112,35 +119,37 @@ void conv_backprop(layer l, tens dy, tens *dx, float rate)
 {
     conv_layer *cl = (conv_layer *)l.data;
 
-    assert(dy.rows == cl->y_rows);
-    assert(dy.cols == cl->y_cols);
-    assert(dy.depth == cl->convolutions);
-    assert(dy.batches == cl->x_batches);
+    assert(dy.dims[R] == cl->y_r);
+    assert(dy.dims[C] == cl->y_c);
+    assert(dy.dims[D] == cl->convolutions);
+    assert(dy.dims[B] == cl->x_b);
 
-    *dx = tens4D_alloc(cl->x_rows, cl->x_cols, cl->x_depth, cl->x_batches);
+    *dx = tens_alloc(cl->x_r, cl->x_c, cl->x_d, cl->x_b);
 
-    tens_pad(cl->dy_padded, dy);
-    tens_180(cl->w_180, cl->w);
+    tens_pad(cl->dy_padded, dy, cl->dy_padding);
+
+    int flip[4] = { 1, 1, 0, 0 };
+    tens_180(cl->w_180, cl->w, flip);
 
     #pragma omp parallel for collapse(2) schedule(static)
-    for (int i = 0; i < cl->x_batches; ++i) {
-        for (int j = 0; j < cl->x_depth; ++j) {
-            for (int k = 0; k < cl->x_rows; ++k) {
-                for (int l = 0; l < cl->x_cols; ++l) {
+    for (int i = 0; i < cl->x_b; ++i) {
+        for (int j = 0; j < cl->x_d; ++j) {
+            for (int k = 0; k < cl->x_r; ++k) {
+                for (int l = 0; l < cl->x_c; ++l) {
                     float sum = 0.0f;
 
                     for (int m = 0; m < cl->convolutions; ++m) {
-                        for (int n = 0; n < cl->w_size; ++n) {
-                            for (int o = 0; o < cl->w_size; ++o) {
-                                float dy_val = tens4D_at(cl->dy_padded, k + n, l + o, m, i);
-                                float w_180_val = tens4D_at(cl->w_180, n, o, j, i);
+                        for (int n = 0; n < cl->w_r; ++n) {
+                            for (int o = 0; o < cl->w_c; ++o) {
+                                float dy_val = tens_at(cl->dy_padded, k + n, l + o, m, i);
+                                float w_180_val = tens_at(cl->w_180, n, o, j, i);
 
                                 sum += dy_val * w_180_val;
                             }
                         }
                     }
 
-                    tens4D_at(*dx, k, l, j, i) = sum;
+                    tens_at(*dx, k, l, j, i) = sum;
                 }
             }
         }
@@ -148,23 +157,23 @@ void conv_backprop(layer l, tens dy, tens *dx, float rate)
 
     #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 0; i < cl->convolutions; ++i) {
-        for (int j = 0; j < cl->x_depth; ++j) {
-            for (int k = 0; k < cl->w_size; ++k) {
-                for (int l = 0; l < cl->w_size; ++l) {
+        for (int j = 0; j < cl->x_d; ++j) {
+            for (int k = 0; k < cl->w_r; ++k) {
+                for (int l = 0; l < cl->w_r; ++l) {
                     float sum = 0.0f;
 
-                    for (int m = 0; m < cl->x_batches; ++m) {
-                        for (int n = 0; n < cl->y_rows; ++n) {
-                            for (int o = 0; o < cl->y_cols  ; ++o) {
-                                float x_val = tens4D_at(cl->x_padded, k + n, k + o, j, m);
-                                float dy_val = tens4D_at(dy, n, o, i, m);
+                    for (int m = 0; m < cl->x_b; ++m) {
+                        for (int n = 0; n < cl->y_r; ++n) {
+                            for (int o = 0; o < cl->y_c  ; ++o) {
+                                float x_val = tens_at(cl->x_padded, k + n, k + o, j, m);
+                                float dy_val = tens_at(dy, n, o, i, m);
 
                                 sum += x_val * dy_val;
                             }
                         }
                     }
 
-                    tens4D_at(cl->dw, k, l, j, i) = sum;
+                    tens_at(cl->dw, k, l, j, i) = sum;
                 }
             }
         }
@@ -172,24 +181,24 @@ void conv_backprop(layer l, tens dy, tens *dx, float rate)
 
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < cl->convolutions; ++i) {
-        for (int j = 0; j < cl->y_rows; ++j) {
-            for (int k = 0; k < cl->y_cols; ++k) {
+        for (int j = 0; j < cl->y_r; ++j) {
+            for (int k = 0; k < cl->y_c; ++k) {
                 float sum = 0;
 
-                for (int l = 0; l < cl->x_batches; ++l) {
-                    sum += tens4D_at(dy, j, k, i, l);
+                for (int l = 0; l < cl->x_b; ++l) {
+                    sum += tens_at(dy, j, k, i, l);
                 }
 
-                tens3D_at(cl->db, j, k, i) = sum;
+                tens_at(cl->db, j, k, i, 0) = sum;
             }
         }
     }
 
-    tens_scale(cl->dw, cl->dw, rate / cl->x_batches);
+    tens_scale(cl->dw, cl->dw, rate / cl->x_b);
     tens_func(cl->dw, cl->dw, clip);
     tens_sub(cl->w, cl->w, cl->dw);
 
-    tens_scale(cl->db, cl->db, rate / cl->x_batches);
+    tens_scale(cl->db, cl->db, rate / cl->x_b);
     tens_func(cl->db, cl->db, clip);
     tens_sub(cl->b, cl->b, cl->db);
 }
@@ -215,7 +224,7 @@ void conv_init(layer l)
 {
     conv_layer *cl = (conv_layer *)l.data;
 
-    tens_normal(cl->w, 0, sqrt(2.0 / (cl->x_depth * cl->w_size * cl->w_size)));
+    tens_normal(cl->w, 0, sqrt(2.0 / (cl->x_d * cl->w_r * cl->w_r)));
     tens_fill(cl->b, 0);
 }
 

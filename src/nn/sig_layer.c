@@ -2,72 +2,17 @@
 #include <assert.h>
 #include "nn.h"
 
-layer sig_layer_2D_alloc(int x_size, int batch_size)
+layer sig_layer_alloc(int x_r, int x_c,
+                      int x_d, int x_b)
 {
     sig_layer *sl = malloc(sizeof(sig_layer));
 
-    sl->x_rows = x_size;
-    sl->x_cols = batch_size;
-    sl->x_depth = 1;
-    sl->x_batches = 1;
+    sl->x_r = x_r;
+    sl->x_c = x_c;
+    sl->x_d = x_d;
+    sl->x_b = x_b;
 
-    sl->x_cache = tens2D_alloc(x_size, batch_size);
-
-    layer l;
-
-    l.data = sl;
-
-    l.forward = sig_forward;
-    l.backprop = sig_backprop;
-    l.destroy = sig_destroy;
-
-    l.init = NULL;
-    l.print = NULL;
-    l.save = NULL;
-    l.load = NULL;
-
-    return l;
-}
-
-layer sig_layer_3D_alloc(int x_rows, int x_cols, int batch_size)
-{
-    sig_layer *sl = malloc(sizeof(sig_layer));
-
-    sl->x_rows = x_rows;
-    sl->x_cols = x_cols;
-    sl->x_depth = batch_size;
-    sl->x_batches = 1;
-
-    sl->x_cache = tens3D_alloc(x_rows, x_cols, batch_size);
-
-    layer l;
-
-    l.data = sl;
-
-    l.forward = sig_forward;
-    l.backprop = sig_backprop;
-    l.destroy = sig_destroy;
-
-    l.init = NULL;
-    l.print = NULL;
-    l.save = NULL;
-    l.load = NULL;
-
-    return l;
-}
-
-layer sig_layer_4D_alloc(int x_rows, int x_cols,
-                         int x_depth, int batch_size)
-{
-    sig_layer *sl = malloc(sizeof(sig_layer));
-
-    sl->x_rows = x_rows;
-    sl->x_cols = x_cols;
-    sl->x_depth = x_depth;
-    sl->x_batches = batch_size;
-
-    sl->x_cache = tens4D_alloc(x_rows, x_cols,
-                               x_depth, batch_size);
+    sl->x_cache = tens_alloc(x_r, x_c, x_d, x_b);
 
     layer l;
 
@@ -89,13 +34,12 @@ void sig_forward(layer l, tens x, tens *y)
 {
     sig_layer *sl = (sig_layer *)l.data;
 
-    assert(x.rows == sl->x_rows);
-    assert(x.cols == sl->x_cols);
-    assert(x.depth == sl->x_depth);
-    assert(x.batches == sl->x_batches);
+    assert(x.dims[R] == sl->x_r);
+    assert(x.dims[C] == sl->x_c);
+    assert(x.dims[D] == sl->x_d);
+    assert(x.dims[B] == sl->x_b);
 
-    *y = tens4D_alloc(sl->x_rows, sl->x_cols,
-                      sl->x_depth, sl->x_batches);
+    *y = tens_alloc(sl->x_r, sl->x_c, sl->x_d, sl->x_b);
 
     tens_copy(sl->x_cache, x);
 
@@ -106,16 +50,15 @@ void sig_backprop(layer l, tens dy, tens *dx, float rate)
 {
     sig_layer *sl = (sig_layer *)l.data;
 
-    assert(dy.rows == sl->x_rows);
-    assert(dy.cols == sl->x_cols);
-    assert(dy.depth == sl->x_depth);
-    assert(dy.batches == sl->x_batches);
+    assert(dy.dims[R] == sl->x_r);
+    assert(dy.dims[C] == sl->x_c);
+    assert(dy.dims[D] == sl->x_d);
+    assert(dy.dims[B] == sl->x_b);
 
-    *dx = tens4D_alloc(sl->x_rows, sl->x_cols,
-                      sl->x_depth, sl->x_batches);
+    *dx = tens_alloc(sl->x_r, sl->x_c, sl->x_d, sl->x_b);
 
-    tens_func(*dx, dy, dsig);
-    tens_had(*dx, *dx, sl->x_cache);
+    tens_func(*dx, sl->x_cache, dsig);
+    tens_had(*dx, *dx, dy);
 }
 
 void sig_destroy(layer l)

@@ -2,72 +2,17 @@
 #include <assert.h>
 #include "nn.h"
 
-layer gelu_layer_2D_alloc(int x_size, int batch_size)
+layer gelu_layer_alloc(int x_r, int x_c,
+                       int x_d, int x_b)
 {
     gelu_layer *gl = malloc(sizeof(gelu_layer));
 
-    gl->x_rows = x_size;
-    gl->x_cols = batch_size;
-    gl->x_depth = 1;
-    gl->x_batches = 1;
+    gl->x_r = x_r;
+    gl->x_c = x_c;
+    gl->x_d = x_d;
+    gl->x_b = x_b;
 
-    gl->x_cache = tens2D_alloc(x_size, batch_size);
-
-    layer l;
-
-    l.data = gl;
-
-    l.forward = gelu_forward;
-    l.backprop = gelu_backprop;
-    l.destroy = gelu_destroy;
-
-    l.init = NULL;
-    l.print = NULL;
-    l.save = NULL;
-    l.load = NULL;
-
-    return l;
-}
-
-layer gelu_layer_3D_alloc(int x_rows, int x_cols, int batch_size)
-{
-    gelu_layer *gl = malloc(sizeof(gelu_layer));
-
-    gl->x_rows = x_rows;
-    gl->x_cols = x_cols;
-    gl->x_depth = batch_size;
-    gl->x_batches = 1;
-
-    gl->x_cache = tens3D_alloc(x_rows, x_cols, batch_size);
-
-    layer l;
-
-    l.data = gl;
-
-    l.forward = gelu_forward;
-    l.backprop = gelu_backprop;
-    l.destroy = gelu_destroy;
-
-    l.init = NULL;
-    l.print = NULL;
-    l.save = NULL;
-    l.load = NULL;
-
-    return l;
-}
-
-layer gelu_layer_4D_alloc(int x_rows, int x_cols,
-                         int x_depth, int batch_size)
-{
-    gelu_layer *gl = malloc(sizeof(gelu_layer));
-
-    gl->x_rows = x_rows;
-    gl->x_cols = x_cols;
-    gl->x_depth = x_depth;
-    gl->x_batches = batch_size;
-
-    gl->x_cache = tens4D_alloc(x_rows, x_cols,
-                               x_depth, batch_size);
+    gl->x_cache = tens_alloc(x_r, x_c, x_d, x_b);
 
     layer l;
 
@@ -89,13 +34,12 @@ void gelu_forward(layer l, tens x, tens *y)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(x.rows == gl->x_rows);
-    assert(x.cols == gl->x_cols);
-    assert(x.depth == gl->x_depth);
-    assert(x.batches == gl->x_batches);
+    assert(x.dims[R] == gl->x_r);
+    assert(x.dims[C] == gl->x_c);
+    assert(x.dims[D] == gl->x_d);
+    assert(x.dims[B] == gl->x_b);
 
-    *y = tens4D_alloc(gl->x_rows, gl->x_cols,
-                      gl->x_depth, gl->x_batches);
+    *y = tens_alloc(gl->x_r, gl->x_c, gl->x_d, gl->x_b);
 
     tens_copy(gl->x_cache, x);
 
@@ -106,16 +50,15 @@ void gelu_backprop(layer l, tens dy, tens *dx, float rate)
 {
     gelu_layer *gl = (gelu_layer *)l.data;
 
-    assert(dy.rows == gl->x_rows);
-    assert(dy.cols == gl->x_cols);
-    assert(dy.depth == gl->x_depth);
-    assert(dy.batches == gl->x_batches);
+    assert(dy.dims[R] == gl->x_r);
+    assert(dy.dims[C] == gl->x_c);
+    assert(dy.dims[D] == gl->x_d);
+    assert(dy.dims[B] == gl->x_b);
 
-    *dx = tens4D_alloc(gl->x_rows, gl->x_cols,
-                      gl->x_depth, gl->x_batches);
+    *dx = tens_alloc(gl->x_r, gl->x_c, gl->x_d, gl->x_b);
 
-    tens_func(*dx, dy, dgelu);
-    tens_had(*dx, *dx, gl->x_cache);
+    tens_func(*dx, gl->x_cache, dgelu);
+    tens_had(*dx, *dx, dy);
 }
 
 void gelu_destroy(layer l)

@@ -4,23 +4,29 @@
 #include <omp.h>
 #include "nn.h"
 
-layer dense_layer_alloc(int x_size, int y_size, int batch_size)
+layer dense_layer_alloc(int x_r, int y_r, int x_b)
 {
     dense_layer *dl = malloc(sizeof(dense_layer));
 
-    dl->x_size = x_size;
-    dl->x_batches = batch_size;
+    dl->x_r = x_r;
+    dl->x_b = x_b;
 
-    dl->y_size = y_size;
+    dl->y_r = y_r;
 
-    dl->w = tens2D_alloc(y_size, x_size);
-    dl->b = tens2D_alloc(y_size, 1);
+    dl->w = tens_alloc(y_r, x_r, 1, 1);
+    dl->b = tens_alloc(y_r, 1, 1, 1);
 
-    dl->x_T = tens2D_alloc(batch_size, x_size);
-    dl->w_T = tens2D_alloc(x_size, y_size);
+    dl->x_reshaped = tens_alloc(x_r, x_b, 1, 1);
+    dl->dot = tens_alloc(y_r, x_b, 1, 1);
 
-    dl->dw = tens2D_alloc(y_size, x_size);
-    dl->db = tens2D_alloc(y_size, 1);
+    dl->x_reshaped_T = tens_alloc(x_b, x_r, 1, 1);
+    dl->w_T = tens_alloc(x_r, y_r, 1, 1);
+
+    dl->dy_reshaped = tens_alloc(y_r, x_b, 1, 1);
+    dl->dx_reshaped = tens_alloc(x_r, x_b, 1, 1);
+
+    dl->dw = tens_alloc(y_r, x_r, 1, 1);
+    dl->db = tens_alloc(y_r, 1, 1, 1);
 
     layer l;
 
@@ -42,21 +48,26 @@ void dense_forward(layer l, tens x, tens *y)
 {
     dense_layer *dl = (dense_layer *)l.data;
 
-    assert(x.rows == dl->x_size);
-    assert(x.cols == dl->x_batches);
-    assert(x.depth == 1);
-    assert(x.batches == 1);
+    assert(x.dims[R] == dl->x_r);
+    assert(x.dims[C] == 1);
+    assert(x.dims[D] == 1);
+    assert(x.dims[B] == dl->x_b);
 
-    *y = tens2D_alloc(dl->y_size, dl->x_batches);
+    *y = tens_alloc(dl->y_r, 1, 1, dl->x_b);
 
-    tens_trans(dl->x_T, x);
+    tens_reshape(dl->x_reshaped, x);
 
-    tens_dot(*y, dl->w, x);
+    int perm[4] = { C, R, D, B };
+    tens_trans(dl->x_reshaped_T, dl->x_reshaped, perm);
+
+    tens_dot(dl->dot, dl->w, dl->x_reshaped);
+
+    tens_reshape(y, dl->dot);
 
     #pragma omp parallel for collapse(2) schedule(static)
-    for (int i = 0; i < dl->y_size; ++i) {
-        for (int j = 0; j < dl->x_batches; ++j) {
-            tens2D_at(*y, i, j) += tens2D_at(dl->b, i, 0);
+    for (int i = 0; i < dl->y_r; ++i) {
+        for (int j = 0; j < dl->x_b; ++j) {
+            tens_at(*y, i, 0, 0, j) = tens_at(dl->b, i, 0, 0, 0);
         }
     }
 }
@@ -65,32 +76,39 @@ void dense_backprop(layer l, tens dy, tens *dx, float rate)
 {
     dense_layer *dl = (dense_layer *)l.data;
 
-    assert(dy.rows == dl->y_size);
-    assert(dy.cols == dl->x_batches);
+    assert(dy.dims[R] == dl->y_r);
+    assert(dy.dims[C] == 1);
+    assert(dy.dims[D] == 1);
+    assert(dy.dims[B] == dl->x_b);
 
-    *dx = tens2D_alloc(dl->x_size, dl->x_batches);
+    *dx = tens_alloc(dl->x_r, 1, 1, dl->x_b);
 
-    tens_trans(dl->w_T, dl->w);
-    tens_dot(*dx, dl->w_T, dy);
+    int perm[4] = { C, R, D, B };
+    tens_trans(dl->w_T, dl->w, perm);
 
-    tens_dot(dl->dw, dy, dl->x_T);
+    tens_reshape(dl->dy_reshaped, dy);
+
+    tens_dot(dl->dx_reshaped, dl->w_T, dl->dy_reshaped);
+    tens_reshape(*dx, dl->dx_reshaped);
+
+    tens_dot(dl->dw, dl->dy_reshaped, dl->x_reshaped_T);
 
     #pragma omp parallel for schedule(static)
-    for (int i = 0; i < dl->y_size; ++i) {
+    for (int i = 0; i < dl->y_r; ++i) {
         float sum = 0.0f;
 
-        for (int j = 0; j < dl->x_batches; ++j) {
-            sum += tens2D_at(dy, i, j);
+        for (int j = 0; j < dl->x_b; ++j) {
+            sum += tens_at(dy, i, 0, 0, j);
         }
 
-        tens2D_at(dl->db, i, 0) = sum;
+        tens_at(dl->db, i, 0, 0, 0) = sum;
     }
 
-    tens_scale(dl->dw, dl->dw, rate / dl->x_batches);
+    tens_scale(dl->dw, dl->dw, rate / dl->x_b);
     tens_func(dl->dw, dl->dw, clip);
     tens_sub(dl->w, dl->w, dl->dw);
 
-    tens_scale(dl->db, dl->db, rate / dl->x_batches);
+    tens_scale(dl->db, dl->db, rate / dl->x_b);
     tens_func(dl->db, dl->db, clip);
     tens_sub(dl->b, dl->b, dl->db);
 }
@@ -102,8 +120,14 @@ void dense_destroy(layer l)
     tens_destroy(dl->w);
     tens_destroy(dl->b);
 
-    tens_destroy(dl->x_T);
+    tens_destroy(dl->x_reshaped);
+    tens_destroy(dl->dot);
+
+    tens_destroy(dl->x_reshaped_T);
     tens_destroy(dl->w_T);
+
+    tens_destroy(dl->dy_reshaped);
+    tens_destroy(dl->dx_reshaped);
 
     tens_destroy(dl->dw);
     tens_destroy(dl->db);
@@ -115,7 +139,7 @@ void dense_init(layer l)
 {
     dense_layer *dl = (dense_layer *)l.data;
 
-    tens_normal(dl->w, 0, sqrt(2.0 / dl->x_size));
+    tens_normal(dl->w, 0, sqrt(2.0 / dl->x_r));
     tens_fill(dl->b, 0);
 }
 
